@@ -1,18 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../../config/api_config.dart';
-import '../../services/api_service.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
-
-// Define static handler for background actions
-@pragma('vm:entry-point')
-Future<void> onActionReceivedMethod(ReceivedAction receivedAction) async {
-  if (receivedAction.buttonKeyPressed == "VIEW_UPDATES") {
-    // Handle the action in background
-    debugPrint(
-        'Notification action received: ${receivedAction.buttonKeyPressed}');
-  }
-}
+import '../../services/api_service.dart';
 
 class NotificationHandler extends StatefulWidget {
   final Widget child;
@@ -25,7 +14,7 @@ class NotificationHandler extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<NotificationHandler> createState() => _NotificationHandlerState();
+  _NotificationHandlerState createState() => _NotificationHandlerState();
 }
 
 class _NotificationHandlerState extends State<NotificationHandler>
@@ -38,33 +27,12 @@ class _NotificationHandlerState extends State<NotificationHandler>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _initializeNotifications();
     _setupNotificationCheck();
-  }
-
-  Future<void> _initializeNotifications() async {
-    await AwesomeNotifications().initialize(
-      null,
-      [
-        NotificationChannel(
-          channelKey: 'basic_channel',
-          channelName: 'Schedule Updates',
-          channelDescription: 'Notifications for schedule changes',
-          defaultColor: Colors.blue,
-          ledColor: Colors.blue,
-          importance: NotificationImportance.High,
-        ),
-      ],
-    );
-
-    await AwesomeNotifications().setListeners(
-      onActionReceivedMethod: onActionReceivedMethod,
-    );
   }
 
   void _setupNotificationCheck() {
     _notificationTimer = Timer.periodic(
-      ApiConfig.notificationInterval,
+      Duration(minutes: 1), // Check for updates every minute
       (_) => _checkForUpdates(),
     );
     _checkForUpdates();
@@ -77,14 +45,14 @@ class _NotificationHandlerState extends State<NotificationHandler>
       if (hasUpdates && mounted) {
         final now = DateTime.now();
         if (_lastNotificationTime == null ||
-            now.difference(_lastNotificationTime!) >
-                const Duration(minutes: 5)) {
+            now.difference(_lastNotificationTime!) > const Duration(minutes: 5)) {
           _showUpdateNotification();
           _lastNotificationTime = now;
+          widget.onUpdate(); // Refresh the schedule data
         }
       }
     } catch (e) {
-      debugPrint('Error checking for updates: $e');
+      print('Error checking for updates: $e');
     }
   }
 

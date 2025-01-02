@@ -65,6 +65,8 @@ class ScheduleSession {
     );
   }
 
+  get isOnline => null;
+
   Map<String, dynamic> toJson() {
     return {
       'code': code,

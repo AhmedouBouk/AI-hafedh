@@ -3,65 +3,51 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 import 'package:ionicons/ionicons.dart';
+import 'package:awesome_notifications/awesome_notifications.dart';
+import 'package:workmanager/workmanager.dart';
 import './screens/emploi_page.dart';
 import 'bdd_page.dart';
 import 'plan_page.dart';
 import 'bilan_page.dart';
-import 'package:awesome_notifications/awesome_notifications.dart';
 
-@pragma('vm:entry-point')
-Future<void> onActionReceivedMethod(ReceivedAction receivedAction) async {
-  if (receivedAction.buttonKeyPressed == "VIEW_UPDATES") {
-    debugPrint(
-        'Notification action received: ${receivedAction.buttonKeyPressed}');
-  }
+void callbackDispatcher() {
+  Workmanager().executeTask((task, inputData) async {
+    await Future.delayed(Duration(seconds: 2));
+    return true;
+  });
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await AwesomeNotifications().initialize(
+  // Initialize notifications
+  AwesomeNotifications().initialize(
     null,
     [
       NotificationChannel(
         channelKey: 'basic_channel',
-        channelName: 'Schedule Updates',
-        channelDescription: 'Notifications for schedule changes',
+        channelName: 'Basic Notifications',
+        channelDescription: 'Notification channel for basic tests',
         defaultColor: Colors.teal,
         ledColor: Colors.white,
         importance: NotificationImportance.High,
-        channelShowBadge: true,
       ),
     ],
   );
 
-  await AwesomeNotifications().setListeners(
-    onActionReceivedMethod: onActionReceivedMethod,
+  // Initialize background tasks
+  Workmanager().initialize(callbackDispatcher);
+  Workmanager().registerPeriodicTask(
+    "updateCheck",
+    "updateCheckTask",
+    frequency: Duration(minutes: 1),
   );
 
   runApp(const MyApp());
 }
 
-class MyApp extends StatefulWidget {
+class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
-  @override
-  _MyAppState createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-  @override
-  void initState() {
-    super.initState();
-    _requestNotificationPermission();
-  }
-
-  Future<void> _requestNotificationPermission() async {
-    final isAllowed = await AwesomeNotifications().isNotificationAllowed();
-    if (!isAllowed) {
-      await AwesomeNotifications().requestPermissionToSendNotifications();
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -141,80 +127,12 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   double _getSlideDirection() {
-    if (_currentIndex > _previousIndex) return 0.1;
-    if (_currentIndex < _previousIndex) return -0.1;
+    if (_currentIndex > _previousIndex) {
+      return 0.1;
+    } else if (_currentIndex < _previousIndex) {
+      return -0.1;
+    }
     return 0.0;
-  }
-
-  SalomonBottomBarItem _buildNavItem({
-    required IconData icon,
-    required IconData activeIcon,
-    required String label,
-    required Color color,
-  }) {
-    return SalomonBottomBarItem(
-      icon: Icon(icon),
-      activeIcon: Icon(activeIcon),
-      title: Text(
-        label,
-        style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-      ),
-      selectedColor: color,
-      unselectedColor: Colors.grey[600],
-    );
-  }
-
-  Widget _buildBottomNavigation() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: SalomonBottomBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _previousIndex = _currentIndex;
-            _currentIndex = index;
-            _animationController.forward(from: 0);
-          });
-        },
-        items: [
-          _buildNavItem(
-            icon: Ionicons.calendar_outline,
-            activeIcon: Ionicons.calendar,
-            label: 'Schedule',
-            color: const Color(0xFF2962FF),
-          ),
-          _buildNavItem(
-            icon: Ionicons.server_outline,
-            activeIcon: Ionicons.server,
-            label: 'Database',
-            color: const Color(0xFF00B0FF),
-          ),
-          _buildNavItem(
-            icon: Ionicons.map_outline,
-            activeIcon: Ionicons.map,
-            label: 'Map',
-            color: const Color(0xFF00C853),
-          ),
-          _buildNavItem(
-            icon: Ionicons.stats_chart_outline,
-            activeIcon: Ionicons.stats_chart,
-            label: 'Analytics',
-            color: const Color(0xFFFF6D00),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -245,6 +163,77 @@ class _HomeScreenState extends State<HomeScreen>
         ],
       ),
       bottomNavigationBar: _buildBottomNavigation(),
+    );
+  }
+
+  Widget _buildBottomNavigation() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: SalomonBottomBar(
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() {
+            _previousIndex = _currentIndex;
+            _currentIndex = index;
+            _animationController.forward(from: 0);
+          });
+        },
+        items: [
+          _buildNavItem(
+            icon: Ionicons.calendar_outline,
+            activeIcon: Ionicons.calendar,
+            label: 'Emploi',
+            color: const Color(0xFF2962FF),
+          ),
+          _buildNavItem(
+            icon: Ionicons.server_outline,
+            activeIcon: Ionicons.server,
+            label: 'BDD',
+            color: const Color(0xFF00B0FF),
+          ),
+          _buildNavItem(
+            icon: Ionicons.map_outline,
+            activeIcon: Ionicons.map,
+            label: 'Plan',
+            color: const Color(0xFF00C853),
+          ),
+          _buildNavItem(
+            icon: Ionicons.stats_chart_outline,
+            activeIcon: Ionicons.stats_chart,
+            label: 'Bilan',
+            color: const Color(0xFFFF6D00),
+          ),
+        ],
+      ),
+    );
+  }
+
+  SalomonBottomBarItem _buildNavItem({
+    required IconData icon,
+    required IconData activeIcon,
+    required String label,
+    required Color color,
+  }) {
+    return SalomonBottomBarItem(
+      icon: Icon(icon),
+      activeIcon: Icon(activeIcon),
+      title: Text(
+        label,
+        style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+      ),
+      selectedColor: color,
+      unselectedColor: Colors.grey[600],
     );
   }
 }

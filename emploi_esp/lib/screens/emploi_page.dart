@@ -15,8 +15,6 @@ class EmploiPage extends StatefulWidget {
 class _EmploiPageState extends State<EmploiPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  String _selectedFilter = 'All';
-  bool _compactMode = false;
   bool _isLoading = true;
   String? _error;
 
@@ -29,13 +27,6 @@ class _EmploiPageState extends State<EmploiPage>
   static const Color accentColor = Color(0xFF2962FF);
   static const Color surfaceColor = Color(0xFFF5F5F5);
   static const Color headerColor = Color(0xFFE8EAF6);
-
-  // Simplified course type colors
-  static final Map<String, Color> typeColors = {
-    'HE': Color(0xFFF1F8E9),
-    'Devoir': Color(0xFFFFEBEE),
-    'IRT': Color(0xFFE3F2FD),
-  };
 
   @override
   void initState() {
@@ -76,10 +67,7 @@ class _EmploiPageState extends State<EmploiPage>
 
   List<ScheduleSession> _getSessionsForDay(String day) {
     if (_sessions == null) return [];
-    return _sessions!.where((session) => session.day == day).where((session) {
-      if (_selectedFilter == 'All') return true;
-      return session.type == _selectedFilter;
-    }).toList()
+    return _sessions!.where((session) => session.day == day).toList()
       ..sort((a, b) => a.timeSlot.compareTo(b.timeSlot));
   }
 
@@ -144,7 +132,6 @@ class _EmploiPageState extends State<EmploiPage>
     return NestedScrollView(
       headerSliverBuilder: (context, innerBoxIsScrolled) => [
         _buildSliverAppBar(),
-        _buildSliverFilters(),
       ],
       body: Column(
         children: [
@@ -159,7 +146,7 @@ class _EmploiPageState extends State<EmploiPage>
     if (_metadata == null) return const SliverToBoxAdapter();
 
     return SliverAppBar(
-      expandedHeight: 200,
+      expandedHeight: 150,
       pinned: true,
       backgroundColor: Colors.transparent,
       flexibleSpace: FlexibleSpaceBar(
@@ -183,15 +170,6 @@ class _EmploiPageState extends State<EmploiPage>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  SizedBox(height: 20),
-                  Text(
-                    'Emploi du Temps',
-                    style: GoogleFonts.inter(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
                   SizedBox(height: 20),
                   _buildSemesterInfo(),
                   SizedBox(height: 12),
@@ -308,54 +286,6 @@ class _EmploiPageState extends State<EmploiPage>
     );
   }
 
-  Widget _buildSliverFilters() {
-    final filters = ['All', 'HE', 'Devoir', 'IRT'];
-
-    return SliverPersistentHeader(
-      pinned: true,
-      delegate: _SliverAppBarDelegate(
-        minHeight: 70,
-        maxHeight: 70,
-        child: Container(
-          color: surfaceColor,
-          child: ListView.builder(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            scrollDirection: Axis.horizontal,
-            itemCount: filters.length,
-            itemBuilder: (context, index) {
-              final filter = filters[index];
-              final isSelected = _selectedFilter == filter;
-
-              return Padding(
-                padding: EdgeInsets.only(right: 8),
-                child: FilterChip(
-                  label: Text(
-                    filter,
-                    style: GoogleFonts.inter(
-                      color: isSelected ? Colors.white : Colors.black87,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  selected: isSelected,
-                  onSelected: (selected) {
-                    setState(() => _selectedFilter = filter);
-                  },
-                  backgroundColor: isSelected
-                      ? accentColor
-                      : typeColors[filter] ?? Colors.grey[100],
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildTabBar() {
     return Container(
       color: surfaceColor,
@@ -385,27 +315,22 @@ class _EmploiPageState extends State<EmploiPage>
         _DaySchedule(
           day: 'Lundi',
           sessions: _getSessionsForDay('Lundi'),
-          compactMode: _compactMode,
         ),
         _DaySchedule(
           day: 'Mardi',
           sessions: _getSessionsForDay('Mardi'),
-          compactMode: _compactMode,
         ),
         _DaySchedule(
           day: 'Mercredi',
           sessions: _getSessionsForDay('Mercredi'),
-          compactMode: _compactMode,
         ),
         _DaySchedule(
           day: 'Jeudi',
           sessions: _getSessionsForDay('Jeudi'),
-          compactMode: _compactMode,
         ),
         _DaySchedule(
           day: 'Vendredi',
           sessions: _getSessionsForDay('Vendredi'),
-          compactMode: _compactMode,
         ),
       ],
     );
@@ -421,12 +346,10 @@ class _EmploiPageState extends State<EmploiPage>
 class _DaySchedule extends StatelessWidget {
   final String day;
   final List<ScheduleSession> sessions;
-  final bool compactMode;
 
   const _DaySchedule({
     required this.day,
     required this.sessions,
-    this.compactMode = false,
   });
 
   @override
@@ -504,9 +427,6 @@ class _DaySchedule extends StatelessWidget {
   }
 
   Widget _buildSessionContent(ScheduleSession session, BuildContext context) {
-    final typeColor =
-        _EmploiPageState.typeColors[session.type] ?? Colors.grey[100]!;
-
     return Container(
       padding: EdgeInsets.all(16),
       child: Column(
@@ -535,7 +455,7 @@ class _DaySchedule extends StatelessWidget {
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: typeColor,
+                  color: Colors.grey[100],
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -548,17 +468,15 @@ class _DaySchedule extends StatelessWidget {
               ),
             ],
           ),
-          if (!compactMode && session.name.isNotEmpty) ...[
-            SizedBox(height: 12),
-            Text(
-              session.name,
-              style: GoogleFonts.inter(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Colors.black87,
-              ),
+          SizedBox(height: 12),
+          Text(
+            session.name,
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.black87,
             ),
-          ],
+          ),
           SizedBox(height: 12),
           Row(
             children: [

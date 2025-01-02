@@ -37,8 +37,16 @@ dependencies:
   http: ^1.1.0
   shared_preferences: ^2.2.2
   collection: ^1.18.0
-  intl: ^0.18.1
+  intl: ^0.17.0
   awesome_notifications: 
+  workmanager: 
+  fl_chart: ^0.55.1
+  shimmer: ^2.0.0
+  percent_indicator: ^4.2.2
+  flutter_neumorphic: ^3.2.0
+  glassmorphism: 3.0.0
+  liquid_progress_indicator:
+  charts_flutter:
   
 
 

@@ -1,5 +1,3 @@
-// lib/widgets/common/refresh_indicator.dart
-
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../config/api_config.dart';
@@ -32,7 +30,7 @@ class _AutoRefreshIndicatorState extends State<AutoRefreshIndicator> {
 
   void _setupAutoRefresh() {
     _refreshTimer = Timer.periodic(
-      ApiConfig.refreshInterval,
+      Duration(minutes: 1), // Reload every minute
       (_) => _performRefresh(),
     );
   }

@@ -1,0 +1,306 @@
+{% extends 'schedule/base.html' %}
+
+{% block title %}Base de données{% endblock %}
+
+{% block extra_css %}
+<style>
+    .course-form {
+        background-color: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    
+    .course-table {
+        margin-top: 20px;
+    }
+    
+    .course-table th {
+        background-color: var(--primary-color);
+        color: white;
+    }
+    
+    .action-buttons {
+        white-space: nowrap;
+    }
+    
+    .professor-cell {
+        max-width: 200px;
+    }
+    
+    .edit-mode {
+        background-color: #fff3cd;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4">Gestion de la base de données</h2>
+        
+        <!-- Course Form -->
+        <div class="course-form">
+            <h4>Ajouter/Modifier un cours</h4>
+            <form id="courseForm">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="courseCode" class="form-label">Code</label>
+                            <input type="text" class="form-control" id="courseCode" required>
+                        </div>
+                    </div>
+                    <div class="col-md-9">
+                        <div class="mb-3">
+                            <label for="courseTitle" class="form-label">Titre</label>
+                            <input type="text" class="form-control" id="courseTitle" required>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="credits" class="form-label">Crédits</label>
+                            <input type="number" class="form-control" id="credits" required>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="cmHours" class="form-label">Heures CM</label>
+                            <input type="number" class="form-control" id="cmHours" required>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="tdHours" class="form-label">Heures TD</label>
+                            <input type="number" class="form-control" id="tdHours" required>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="tpHours" class="form-label">Heures TP</label>
+                            <input type="number" class="form-control" id="tpHours" required>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="cmProf" class="form-label">Professeur CM</label>
+                            <select class="form-select" id="cmProf">
+                                <option value="">Sélectionner un professeur</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="tdProf" class="form-label">Professeur TD</label>
+                            <select class="form-select" id="tdProf">
+                                <option value="">Sélectionner un professeur</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="tpProf" class="form-label">Professeur TP</label>
+                            <select class="form-select" id="tpProf">
+                                <option value="">Sélectionner un professeur</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="cmRoom" class="form-label">Salle CM</label>
+                            <select class="form-select" id="cmRoom">
+                                <option value="">Sélectionner une salle</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="tdRoom" class="form-label">Salle TD</label>
+                            <select class="form-select" id="tdRoom">
+                                <option value="">Sélectionner une salle</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="tpRoom" class="form-label">Salle TP</label>
+                            <select class="form-select" id="tpRoom">
+                                <option value="">Sélectionner une salle</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-end">
+                    <button type="button" class="btn btn-secondary" onclick="resetForm()">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Course Table -->
+        <div class="table-responsive course-table">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Titre</th>
+                        <th>Crédits</th>
+                        <th>CM</th>
+                        <th>TD</th>
+                        <th>TP</th>
+                        <th>Professeurs</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for course in courses %}
+                    <tr>
+                        <td>{{ course.code }}</td>
+                        <td>{{ course.title }}</td>
+                        <td>{{ course.credits }}</td>
+                        <td>{{ course.cm_hours }}</td>
+                        <td>{{ course.td_hours }}</td>
+                        <td>{{ course.tp_hours }}</td>
+                        <td class="professor-cell">
+                            {% for assignment in course.courseassignment_set.all %}
+                            <div>{{ assignment.type }}: {{ assignment.professor.name }}</div>
+                            {% endfor %}
+                        </td>
+                        <td class="action-buttons">
+                            <button class="btn btn-sm btn-primary" onclick="editCourse('{{ course.code }}')">
+                                <i class="bi bi-pencil"></i> Modifier
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteCourse('{{ course.code }}')">
+                                <i class="bi bi-trash"></i> Supprimer
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function loadProfessors() {
+        $.get('/api/professors/', function(data) {
+            const profSelects = ['#cmProf', '#tdProf', '#tpProf'];
+            profSelects.forEach(select => {
+                const $select = $(select);
+                $select.empty();
+                $select.append('<option value="">Sélectionner un professeur</option>');
+                data.forEach(prof => {
+                    $select.append(`<option value="${prof.id}">${prof.name}</option>`);
+                });
+            });
+        });
+    }
+    
+    function loadRooms() {
+        $.get('/api/rooms/', function(data) {
+            const roomSelects = ['#cmRoom', '#tdRoom', '#tpRoom'];
+            roomSelects.forEach(select => {
+                const $select = $(select);
+                $select.empty();
+                $select.append('<option value="">Sélectionner une salle</option>');
+                data.forEach(room => {
+                    $select.append(`<option value="${room.id}">${room.number}</option>`);
+                });
+            });
+        });
+    }
+    
+    function editCourse(code) {
+        $.get(`/api/course/${code}/`, function(data) {
+            $('#courseCode').val(data.code);
+            $('#courseTitle').val(data.title);
+            $('#credits').val(data.credits);
+            $('#cmHours').val(data.cm_hours);
+            $('#tdHours').val(data.td_hours);
+            $('#tpHours').val(data.tp_hours);
+            $('#cmProf').val(data.professors.CM);
+            $('#tdProf').val(data.professors.TD);
+            $('#tpProf').val(data.professors.TP);
+            $('#cmRoom').val(data.rooms.CM);
+            $('#tdRoom').val(data.rooms.TD);
+            $('#tpRoom').val(data.rooms.TP);
+            
+            $('#courseCode').prop('readonly', true);
+            $('.course-form').addClass('edit-mode');
+        });
+    }
+    
+    function deleteCourse(code) {
+        if (confirm(`Êtes-vous sûr de vouloir supprimer le cours ${code}?`)) {
+            $.ajax({
+                url: `/api/course/${code}/`,
+                method: 'DELETE',
+                success: function() {
+                    location.reload();
+                },
+                error: function() {
+                    alert('Erreur lors de la suppression du cours');
+                }
+            });
+        }
+    }
+    
+    function resetForm() {
+        $('#courseForm')[0].reset();
+        $('#courseCode').prop('readonly', false);
+        $('.course-form').removeClass('edit-mode');
+    }
+    
+    $('#courseForm').submit(function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            code: $('#courseCode').val(),
+            title: $('#courseTitle').val(),
+            credits: $('#credits').val(),
+            cm_hours: $('#cmHours').val(),
+            td_hours: $('#tdHours').val(),
+            tp_hours: $('#tpHours').val(),
+            professors: {
+                CM: $('#cmProf').val(),
+                TD: $('#tdProf').val(),
+                TP: $('#tpProf').val()
+            },
+            rooms: {
+                CM: $('#cmRoom').val(),
+                TD: $('#tdRoom').val(),
+                TP: $('#tpRoom').val()
+            }
+        };
+        
+        $.ajax({
+            url: '/api/course/' + formData.code + '/',
+            method: $('#courseCode').prop('readonly') ? 'PUT' : 'POST',
+            data: JSON.stringify(formData),
+            contentType: 'application/json',
+            success: function() {
+                location.reload();
+            },
+            error: function() {
+                alert('Erreur lors de l\'enregistrement du cours');
+            }
+        });
+    });
+    
+    // Initial load
+    loadProfessors();
+    loadRooms();
+</script>
+{% endblock %}

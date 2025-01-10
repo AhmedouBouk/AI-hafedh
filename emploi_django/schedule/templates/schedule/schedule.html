@@ -1,0 +1,169 @@
+{% extends 'schedule/base.html' %}
+
+{% block title %}Emploi du temps{% endblock %}
+
+{% block extra_css %}
+<style>
+    .week-selector {
+        margin-bottom: 20px;
+    }
+    
+    .schedule-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .schedule-table th {
+        background-color: var(--primary-color);
+        color: white;
+        padding: 10px;
+        text-align: center;
+    }
+    
+    .time-slot {
+        background-color: var(--secondary-color);
+        color: white;
+        padding: 5px;
+        text-align: center;
+        width: 100px;
+    }
+    
+    .course-box {
+        background-color: #fff;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 10px;
+        margin: 5px;
+        min-height: 80px;
+    }
+    
+    .course-box:hover {
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    
+    .course-code {
+        font-weight: bold;
+        color: var(--primary-color);
+    }
+    
+    .course-type {
+        color: var(--accent-color);
+    }
+    
+    .course-prof {
+        font-size: 0.9em;
+        color: #666;
+    }
+    
+    .course-room {
+        font-size: 0.8em;
+        color: #888;
+    }
+    
+    @media print {
+        .no-print {
+            display: none;
+        }
+        
+        .schedule-table {
+            font-size: 10pt;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="week-selector no-print mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h2>Emploi du temps - Semaine <span id="currentWeek">1</span></h2>
+        <div class="btn-group">
+            <button class="btn btn-primary" onclick="previousWeek()">←</button>
+            <select class="form-select" id="weekSelect" style="width: 100px;">
+                {% for week in weeks %}
+                    <option value="{{ week }}">S{{ week }}</option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-primary" onclick="nextWeek()">→</button>
+        </div>
+        <button class="btn btn-secondary" onclick="window.print()">Imprimer</button>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="schedule-table">
+        <thead>
+            <tr>
+                <th></th>
+                {% for day in days %}
+                    <th>{{ day.1 }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for period in periods %}
+                <tr>
+                    <td class="time-slot">{{ period.1 }}</td>
+                    {% for day in days %}
+                        <td class="schedule-cell" id="{{ day.0 }}_{{ period.0 }}">
+                            <!-- Course boxes will be dynamically added here -->
+                        </td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentWeek = 1;
+    
+    function updateSchedule() {
+        // Clear existing schedule
+        $('.schedule-cell').empty();
+        
+        // Fetch and display schedule for current week
+        $.get(`/api/schedule/${currentWeek}/`, function(data) {
+            data.forEach(slot => {
+                const cell = $(`#${slot.day}_${slot.period}`);
+                cell.append(`
+                    <div class="course-box">
+                        <div class="course-code">${slot.course_code}</div>
+                        <div class="course-type">${slot.type}</div>
+                        <div class="course-prof">${slot.professor}</div>
+                        <div class="course-room">Salle ${slot.room}</div>
+                    </div>
+                `);
+            });
+        });
+    }
+    
+    function previousWeek() {
+        if (currentWeek > 1) {
+            currentWeek--;
+            $('#weekSelect').val(currentWeek);
+            $('#currentWeek').text(currentWeek);
+            updateSchedule();
+        }
+    }
+    
+    function nextWeek() {
+        if (currentWeek < 17) {
+            currentWeek++;
+            $('#weekSelect').val(currentWeek);
+            $('#currentWeek').text(currentWeek);
+            updateSchedule();
+        }
+    }
+    
+    $('#weekSelect').change(function() {
+        currentWeek = parseInt($(this).val());
+        $('#currentWeek').text(currentWeek);
+        updateSchedule();
+    });
+    
+    // Initial load
+    updateSchedule();
+</script>
+{% endblock %}

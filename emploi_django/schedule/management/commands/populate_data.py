@@ -5,80 +5,173 @@ class Command(BaseCommand):
     help = 'Populate database with initial data'
 
     def handle(self, *args, **kwargs):
-        # Create courses
-        courses = [
+        # Create Professors
+        professors = {
+            'Aboubecrine': Professor.objects.create(name='Aboubecrine'),
+            'Hafedh': Professor.objects.create(name='Hafedh'),
+            'El Aoun': Professor.objects.create(name='El Aoun'),
+            'Sass': Professor.objects.create(name='Sass'),
+            'Moktar': Professor.objects.create(name='Moktar'),
+            'Elhacen': Professor.objects.create(name='Elhacen'),
+            'Helmi': Professor.objects.create(name='Helmi'),
+        }
+
+        # Create Rooms
+        rooms = {
+            '104': Room.objects.create(number='104', type='AMPHI'),
+            'Labo IRT': Room.objects.create(number='Labo IRT', type='LAB'),
+            'Lab Electro': Room.objects.create(number='Lab Electro', type='LAB'),
+        }
+
+        # Create Courses with their assignments
+        courses_data = [
             {
                 'code': 'IRT31',
-                'title': 'Programmation Python',
+                'title': 'Développement JEE',
                 'credits': 3,
-                'cm_hours': 21,
-                'td_hours': 10.5,
-                'tp_hours': 10.5
+                'cm_hours': 6,
+                'td_hours': 6,
+                'tp_hours': 12,
+                'assignments': {
+                    'CM': ('Aboubecrine', '104'),
+                    'TD': ('Aboubecrine', '104'),
+                    'TP': ('Aboubecrine', '104'),
+                }
             },
             {
                 'code': 'IRT32',
-                'title': 'Base de données',
-                'credits': 3,
-                'cm_hours': 21,
-                'td_hours': 10.5,
-                'tp_hours': 10.5
+                'title': 'Intelligence artificielle',
+                'credits': 2,
+                'cm_hours': 5,
+                'td_hours': 5,
+                'tp_hours': 6,
+                'assignments': {
+                    'CM': ('Hafedh', '104'),
+                    'TD': ('Hafedh', '104'),
+                    'TP': ('Hafedh', '104'),
+                }
             },
             {
                 'code': 'IRT33',
-                'title': 'Réseaux',
+                'title': 'Théorie des langages et compilation',
+                'credits': 2,
+                'cm_hours': 5,
+                'td_hours': 5,
+                'tp_hours': 6,
+                'assignments': {
+                    'CM': ('Hafedh', '104'),
+                    'TD': ('Hafedh', '104'),
+                    'TP': ('Hafedh', '104'),
+                }
+            },
+            {
+                'code': 'IRT34',
+                'title': 'Communications numériques',
+                'credits': 2,
+                'cm_hours': 5,
+                'td_hours': 5,
+                'tp_hours': 6,
+                'assignments': {
+                    'CM': ('El Aoun', '104'),
+                    'TD': ('El Aoun', '104'),
+                    'TP': ('Moktar/Elhacen', 'Labo IRT'),
+                }
+            },
+            {
+                'code': 'IRT35',
+                'title': 'Architecture des ordinateurs',
                 'credits': 3,
-                'cm_hours': 21,
-                'td_hours': 10.5,
-                'tp_hours': 10.5
-            }
+                'cm_hours': 8,
+                'td_hours': 8,
+                'tp_hours': 8,
+                'assignments': {
+                    'CM': ('Sass', '104'),
+                    'TD': ('Sass', '104'),
+                    'TP': ('Sass', 'Lab Electro'),
+                }
+            },
+            {
+                'code': 'IRT36',
+                'title': 'Réseaux mobilles',
+                'credits': 2,
+                'cm_hours': 5,
+                'td_hours': 5,
+                'tp_hours': 6,
+                'assignments': {
+                    'CM': ('Moktar', '104'),
+                    'TD': ('Moktar', '104'),
+                    'TP': ('Moktar', '104'),
+                }
+            },
+            {
+                'code': 'IRT37',
+                'title': 'Réseaux d\'opérateurs',
+                'credits': 2,
+                'cm_hours': 5,
+                'td_hours': 5,
+                'tp_hours': 6,
+                'assignments': {
+                    'CM': ('El Aoun', '104'),
+                    'TD': ('El Aoun', '104'),
+                    'TP': ('El Aoun', '104'),
+                }
+            },
+            {
+                'code': 'IRT38',
+                'title': 'IoT',
+                'credits': 2,
+                'cm_hours': 5,
+                'td_hours': 5,
+                'tp_hours': 6,
+                'assignments': {
+                    'CM': ('Elhacen', '104'),
+                    'TD': ('Elhacen', '104'),
+                    'TP': ('Helmi', '104'),
+                }
+            },
+            {
+                'code': 'PIE',
+                'title': 'Projet indusriel en Entreprise (PIE)',
+                'credits': 2,
+                'cm_hours': 0,
+                'td_hours': 24,
+                'tp_hours': 48,
+                'assignments': {
+                    'TD': ('Enseignants du dpt.', '104'),
+                    'TP': ('Enseignants du dpt.', '104'),
+                }
+            },
         ]
-        
-        for course_data in courses:
-            Course.objects.get_or_create(**course_data)
-            self.stdout.write(f'Created course: {course_data["code"]}')
 
-        # Create professors
-        professors = [
-            {'name': 'Dr. Smith'},
-            {'name': 'Prof. Johnson'},
-            {'name': 'Dr. Williams'}
-        ]
-        
-        for prof_data in professors:
-            Professor.objects.get_or_create(**prof_data)
-            self.stdout.write(f'Created professor: {prof_data["name"]}')
+        for course_data in courses_data:
+            course = Course.objects.create(
+                code=course_data['code'],
+                title=course_data['title'],
+                credits=course_data['credits'],
+                cm_hours=course_data['cm_hours'],
+                td_hours=course_data['td_hours'],
+                tp_hours=course_data['tp_hours']
+            )
 
-        # Create rooms
-        rooms = [
-            {'number': 'A101', 'type': 'CM'},
-            {'number': 'B201', 'type': 'TD'},
-            {'number': 'C301', 'type': 'TP'}
-        ]
-        
-        for room_data in rooms:
-            Room.objects.get_or_create(**room_data)
-            self.stdout.write(f'Created room: {room_data["number"]}')
-
-        # Create course assignments
-        assignments = [
-            # Python course assignments
-            {'course': Course.objects.get(code='IRT31'), 'professor': Professor.objects.get(name='Dr. Smith'), 'type': 'CM', 'room': Room.objects.get(number='A101')},
-            {'course': Course.objects.get(code='IRT31'), 'professor': Professor.objects.get(name='Dr. Smith'), 'type': 'TD', 'room': Room.objects.get(number='B201')},
-            {'course': Course.objects.get(code='IRT31'), 'professor': Professor.objects.get(name='Dr. Smith'), 'type': 'TP', 'room': Room.objects.get(number='C301')},
-            
-            # Database course assignments
-            {'course': Course.objects.get(code='IRT32'), 'professor': Professor.objects.get(name='Prof. Johnson'), 'type': 'CM', 'room': Room.objects.get(number='A101')},
-            {'course': Course.objects.get(code='IRT32'), 'professor': Professor.objects.get(name='Prof. Johnson'), 'type': 'TD', 'room': Room.objects.get(number='B201')},
-            {'course': Course.objects.get(code='IRT32'), 'professor': Professor.objects.get(name='Prof. Johnson'), 'type': 'TP', 'room': Room.objects.get(number='C301')},
-            
-            # Networks course assignments
-            {'course': Course.objects.get(code='IRT33'), 'professor': Professor.objects.get(name='Dr. Williams'), 'type': 'CM', 'room': Room.objects.get(number='A101')},
-            {'course': Course.objects.get(code='IRT33'), 'professor': Professor.objects.get(name='Dr. Williams'), 'type': 'TD', 'room': Room.objects.get(number='B201')},
-            {'course': Course.objects.get(code='IRT33'), 'professor': Professor.objects.get(name='Dr. Williams'), 'type': 'TP', 'room': Room.objects.get(number='C301')}
-        ]
-        
-        for assignment_data in assignments:
-            CourseAssignment.objects.get_or_create(**assignment_data)
-            self.stdout.write(f'Created assignment: {assignment_data["course"].code} - {assignment_data["type"]}')
+            # Create assignments
+            for type_key, (prof_name, room_number) in course_data['assignments'].items():
+                # Handle special case for multiple professors
+                if '/' in prof_name:
+                    prof_name = prof_name.split('/')[0]  # Take the first professor for now
+                
+                # Handle special case for "Enseignants du dpt."
+                if prof_name == 'Enseignants du dpt.':
+                    professor = Professor.objects.create(name=prof_name)
+                else:
+                    professor = professors[prof_name]
+                
+                room = rooms[room_number]
+                
+                CourseAssignment.objects.create(
+                    course=course,
+                    professor=professor,
+                    room=room,
+                    type=type_key
+                )
 
         self.stdout.write(self.style.SUCCESS('Successfully populated database'))

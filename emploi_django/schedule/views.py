@@ -232,3 +232,59 @@ def save_plan(request):
             }, status=500)
     
     return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+def update_course(request):
+    """Update a course field"""
+    if request.method == 'POST':
+        course_id = request.POST.get('course_id')
+        field = request.POST.get('field')
+        value = request.POST.get('value')
+        
+        try:
+            course = Course.objects.get(id=course_id)
+            original_value = getattr(course, field)
+            
+            # Update the field
+            setattr(course, field, value)
+            course.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Course updated successfully'
+            })
+        except Course.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': 'Course not found',
+                'original_value': original_value
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': str(e),
+                'original_value': original_value
+            })
+
+@csrf_exempt
+def delete_course(request):
+    """Delete a course"""
+    if request.method == 'POST':
+        course_id = request.POST.get('course_id')
+        try:
+            course = Course.objects.get(id=course_id)
+            course.delete()
+            return JsonResponse({
+                'success': True,
+                'message': 'Course deleted successfully'
+            })
+        except Course.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': 'Course not found'
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': str(e)
+            })

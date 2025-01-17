@@ -15,4 +15,6 @@ urlpatterns = [
     path('api/plan/all/', views.get_all_plan, name='api_plan_all'),
     path('api/plan/<int:week>/', views.get_plan, name='api_plan'),
     path('api/plan/save/', views.save_plan, name='api_save_plan'),
+    path('update_course/', views.update_course, name='update_course'),
+    path('delete_course/', views.delete_course, name='delete_course'),
 ]

@@ -170,27 +170,65 @@ def save_plan(request):
             data = json.loads(request.body)
             plan = data['plan']
             
-            # Clear existing slots for the week
-            week = plan[0]['week'] if plan else None
-            if week is not None:
-                TimeSlot.objects.filter(week=week).delete()
+            print(f"Received plan data: {plan}")
             
-            # Create new slots
+            # Group slots by week for batch processing
+            slots_by_week = {}
             for item in plan:
-                course = Course.objects.get(code=item['course_code'])
-                assignment = CourseAssignment.objects.get(
-                    course=course,
-                    type=item['type']
-                )
-                TimeSlot.objects.create(
-                    week=item['week'],
-                    day=item['day'],
-                    period=item['period'],
-                    course_assignment=assignment
-                )
+                week = item['week']
+                if week not in slots_by_week:
+                    slots_by_week[week] = []
+                slots_by_week[week].append(item)
+            
+            # Process each week's slots
+            for week, items in slots_by_week.items():
+                print(f"Processing week {week}")
+                # Delete existing slots for this week
+                TimeSlot.objects.filter(week=week).delete()
+                
+                # Create new slots for this week
+                for item in items:
+                    try:
+                        print(f"Processing item: {item}")
+                        course = Course.objects.get(code=item['course_code'])
+                        assignment = CourseAssignment.objects.get(
+                            course=course,
+                            type=item['type']
+                        )
+                        
+                        # Create the time slot
+                        TimeSlot.objects.create(
+                            week=item['week'],
+                            day=item['day'],
+                            period=item['period'],
+                            course_assignment=assignment
+                        )
+                    except (Course.DoesNotExist, CourseAssignment.DoesNotExist) as e:
+                        print(f"Error finding course or assignment: {e}")
+                        return JsonResponse({
+                            'error': f'Could not find course or assignment: {str(e)}. Course code: {item["course_code"]}, Type: {item["type"]}'
+                        }, status=400)
+                    except Exception as e:
+                        print(f"Error saving time slot: {e}")
+                        return JsonResponse({
+                            'error': f'Error saving time slot: {str(e)}. Data: {item}'
+                        }, status=500)
             
             return JsonResponse({'status': 'success'})
+        except KeyError as e:
+            print(f"Missing required field: {e}")
+            return JsonResponse({
+                'error': f'Missing required field: {str(e)}'
+            }, status=400)
+        except json.JSONDecodeError as e:
+            print(f"Invalid JSON data: {e}")
+            return JsonResponse({
+                'error': 'Invalid JSON data'
+            }, status=400)
         except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
+            print(f"Unexpected error: {e}")
+            return JsonResponse({
+                'error': f'Unexpected error: {str(e)}'
+            }, status=500)
     
     return JsonResponse({'error': 'Invalid request method'}, status=405)

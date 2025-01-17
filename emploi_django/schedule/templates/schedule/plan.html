@@ -341,7 +341,9 @@
         if (!selectedCell || !$('#courseSelect').val()) return;
         
         const courseCode = $('#courseSelect').val();
-        selectedCell.innerHTML = `${courseCode}-${type}`;
+        selectedCell.innerHTML = `${courseCode} - ${type}`;
+        selectedCell.dataset.courseCode = courseCode;
+        selectedCell.dataset.type = type;
         selectedCell.className = `plan-cell ${type.toLowerCase()}`;
         courseModal.hide();
         savePlan();
@@ -366,6 +368,8 @@
         if (!selectedCell) return;
         selectedCell.innerHTML = '';
         selectedCell.className = 'plan-cell';
+        selectedCell.dataset.courseCode = '';
+        selectedCell.dataset.type = '';
         courseModal.hide();
         savePlan();
     }
@@ -373,14 +377,13 @@
     function savePlan() {
         const plan = [];
         document.querySelectorAll('.plan-cell').forEach(cell => {
-            if (cell.innerHTML && !cell.innerHTML.includes('Soutenance') && !cell.innerHTML.includes('Encadrement')) {
-                const [courseCode, type] = cell.innerHTML.split('-');
+            if (cell.dataset.courseCode && cell.dataset.type) {
                 plan.push({
                     week: parseInt(cell.dataset.week),
                     day: cell.dataset.day,
                     period: cell.dataset.period,
-                    course_code: courseCode,
-                    type: type
+                    course_code: cell.dataset.courseCode,
+                    type: cell.dataset.type
                 });
             }
         });
@@ -390,12 +393,13 @@
             method: 'POST',
             data: JSON.stringify({ plan: plan }),
             contentType: 'application/json',
-            success: function() {
-                console.log('Plan saved successfully');
+            success: function(response) {
+                console.log('Plan saved successfully:', response);
             },
             error: function(xhr) {
                 console.error('Save error:', xhr.responseText);
-                alert('Error saving plan');
+                const errorMsg = xhr.responseJSON ? xhr.responseJSON.error : 'Unknown error saving plan';
+                alert(errorMsg);
             }
         });
     }
@@ -405,6 +409,8 @@
             document.querySelectorAll('.plan-cell').forEach(cell => {
                 cell.innerHTML = '';
                 cell.className = 'plan-cell';
+                cell.dataset.courseCode = '';
+                cell.dataset.type = '';
             });
             
             data.forEach(item => {
@@ -419,7 +425,9 @@
                         cell.innerHTML = 'Encadrement militaire';
                         cell.className = 'plan-cell military';
                     } else {
-                        cell.innerHTML = `${item.course_code}-${item.type}`;
+                        cell.innerHTML = `${item.course_code} - ${item.type}`;
+                        cell.dataset.courseCode = item.course_code;
+                        cell.dataset.type = item.type;
                         cell.className = `plan-cell ${item.type.toLowerCase()}`;
                     }
                 }

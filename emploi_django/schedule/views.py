@@ -288,3 +288,53 @@ def delete_course(request):
                 'success': False,
                 'message': str(e)
             })
+
+def debug_course_values(request):
+    courses = Course.objects.all()
+    course_data = [{'code': course.code, 'cm_completed': course.cm_completed, 'td_completed': course.td_completed, 'tp_completed': course.tp_completed} for course in courses]
+    return JsonResponse(course_data, safe=False)
+
+from django.shortcuts import render, get_object_or_404
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+import json
+from .models import Course
+
+def bilan_view(request):
+    """View for displaying the course progress"""
+    courses = Course.objects.all()
+    # Calculer l'avancement total pour chaque cours
+    for course in courses:
+        course.total_progress_value = course.total_progress()  # Ajouter l'avancement total au cours
+    context = {
+        'courses': courses,
+        'total_progress': [course.total_progress_value for course in courses]
+    }
+    return render(request, 'schedule/bilan.html', context)
+import logging
+
+logger = logging.getLogger(__name__)
+
+@csrf_exempt
+def update_bilan(request):
+    if request.method == 'POST':
+        print("Update Bilan called!")  # Debug: Check if view is called
+        data = json.loads(request.body)
+        course_code = data.get('course_code')
+        field = data.get('field')
+        value = data.get('value')
+        # Rest of the code...
+
+        try:
+            course = Course.objects.get(code=course_code)
+            if field in ['cm_completed', 'td_completed', 'tp_completed']:
+                setattr(course, field, int(value))  # Ensure value is an integer
+                course.save()
+                return JsonResponse({'status': 'success'})
+            else:
+                return JsonResponse({'error': 'Invalid field'}, status=400)
+        except Course.DoesNotExist:
+            return JsonResponse({'error': 'Course not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)

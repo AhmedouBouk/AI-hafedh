@@ -1,0 +1,189 @@
+{% extends 'schedule/base.html' %}
+
+{% block title %}Bilan des Cours{% endblock %}
+
+{% block extra_css %}
+<style>
+    .table-responsive {
+        max-height: calc(100vh - 150px);
+        overflow-y: auto;
+    }
+
+    .editable:hover {
+        background-color: #f8f9fa;
+        cursor: pointer;
+    }
+
+    .editing {
+        padding: 0 !important;
+    }
+
+    .editing input {
+        width: 100%;
+        height: 100%;
+        border: none;
+        padding: 8px;
+        background-color: #fff;
+    }
+
+    .progress-cell {
+        font-weight: bold;
+    }
+
+    .section-header {
+        background-color: #f8f9fa;
+        font-weight: bold;
+        text-align: center;
+        padding: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2>Bilan des Cours</h2>
+    <button class="btn btn-primary mb-3" onclick="location.reload()">Rafraîchir</button>
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover">
+            <thead>
+                <tr>
+                    <th>CodeEM</th>
+                    <th>Titre</th>
+                    <th>Crédits EM</th>
+                    <th>CM Planifié</th>
+                    <th>CM Réalisé</th>
+                    <th>% CM</th>
+                    <th>TD Planifié</th>
+                    <th>TD Réalisé</th>
+                    <th>% TD</th>
+                    <th>TP Planifié</th>
+                    <th>TP Réalisé</th>
+                    <th>% TP</th>
+                    <th>Total Planifié</th>
+                    <th>Total Réalisé</th>
+                    <th>% Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for course in courses %}
+                <tr>
+                    <td>{{ course.code }}</td>
+                    <td>{{ course.title }}</td>
+                    <td>{{ course.credits }}</td>
+                    <td>{{ course.cm_hours }}</td>
+                    <td class="editable" data-field="cm_completed" data-course-code="{{ course.code }}">{{ course.cm_completed }}</td>
+                    <td class="progress-cell">{{ course.progress_cm|floatformat:2 }}%</td>
+                    <td>{{ course.td_hours }}</td>
+                    <td class="editable" data-field="td_completed" data-course-code="{{ course.code }}">{{ course.td_completed }}</td>
+                    <td class="progress-cell">{{ course.progress_td|floatformat:2 }}%</td>
+                    <td>{{ course.tp_hours }}</td>
+                    <td class="editable" data-field="tp_completed" data-course-code="{{ course.code }}">{{ course.tp_completed }}</td>
+                    <td class="progress-cell">{{ course.progress_tp|floatformat:2 }}%</td>
+                    <td>{{ course.cm_hours|add:course.td_hours|add:course.tp_hours }}</td>
+                    <td>{{ course.cm_completed|add:course.td_completed|add:course.tp_completed }}</td>
+                    <td class="progress-cell">{{ course.total_progress|floatformat:2 }}%</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        console.log("JavaScript loaded!"); // Debug: Check if JS is running
+    
+        // Function to calculate progress
+        function calculateProgress(completed, planned) {
+            return planned > 0 ? ((completed / planned) * 100).toFixed(2) : 0;
+        }
+    
+        // Function to update progress percentages
+        function updateProgress(cell) {
+            console.log("Updating progress..."); // Debug: Check if function is called
+    
+            const row = cell.closest('tr');
+            const cmPlanned = parseFloat(row.find('td:nth-child(4)').text());
+            const cmCompleted = parseFloat(row.find('td:nth-child(5)').text());
+            const tdPlanned = parseFloat(row.find('td:nth-child(7)').text());
+            const tdCompleted = parseFloat(row.find('td:nth-child(8)').text());
+            const tpPlanned = parseFloat(row.find('td:nth-child(10)').text());
+            const tpCompleted = parseFloat(row.find('td:nth-child(11)').text());
+    
+            console.log("CM Planned:", cmPlanned, "CM Completed:", cmCompleted); // Debug: Check values
+            console.log("TD Planned:", tdPlanned, "TD Completed:", tdCompleted); // Debug: Check values
+            console.log("TP Planned:", tpPlanned, "TP Completed:", tpCompleted); // Debug: Check values
+    
+            // Update CM progress
+            const cmProgress = calculateProgress(cmCompleted, cmPlanned);
+            row.find('td:nth-child(6)').text(`${cmProgress}%`);
+    
+            // Update TD progress
+            const tdProgress = calculateProgress(tdCompleted, tdPlanned);
+            row.find('td:nth-child(9)').text(`${tdProgress}%`);
+    
+            // Update TP progress
+            const tpProgress = calculateProgress(tpCompleted, tpPlanned);
+            row.find('td:nth-child(12)').text(`${tpProgress}%`);
+    
+            // Update Total progress
+            const totalPlanned = cmPlanned + tdPlanned + tpPlanned;
+            const totalCompleted = cmCompleted + tdCompleted + tpCompleted;
+            const totalProgress = calculateProgress(totalCompleted, totalPlanned);
+            row.find('td:nth-child(15)').text(`${totalProgress}%`);
+    
+            console.log("Progress updated!"); // Debug: Check if progress is updated
+        }
+    
+        // Make cells editable on click
+        $('.editable').on('click', function() {
+            console.log("Cell clicked!"); // Debug: Check if cell is clicked
+            const cell = $(this);
+            const value = cell.text().trim();
+            const input = $('<input type="text">').val(value);
+            cell.html(input).addClass('editing');
+            input.focus();
+        });
+    
+        // Handle input blur
+        $(document).on('blur', '.editing input', function() {
+            console.log("Input blurred!"); // Debug: Check if input is blurred
+            const cell = $(this).parent();
+            const newValue = $(this).val();
+            const field = cell.data('field');
+            const courseCode = cell.data('course-code');
+    
+            console.log("New Value:", newValue); // Debug: Check new value
+            console.log("Field:", field); // Debug: Check field
+            console.log("Course Code:", courseCode); // Debug: Check course code
+    
+            // Update the cell content
+            cell.html(newValue).removeClass('editing');
+    
+            // Update progress percentages
+            updateProgress(cell);
+    
+            // Send the update to the server
+            $.ajax({
+                url: '{% url "update_bilan" %}',  // Ensure this matches the name in urls.py
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    course_code: courseCode,
+                    field: field,
+                    value: newValue
+                }),
+                success: function(response) {
+                    console.log("Server response:", response);
+                    if (response.status !== 'success') {
+                        alert('Failed to update');
+                    }
+                },
+                error: function(xhr) {
+                    console.error("Error:", xhr.responseText);
+                    alert('Error: ' + xhr.responseText);
+                }
+            });
+</script>
+{% endblock %}

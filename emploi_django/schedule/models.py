@@ -6,12 +6,31 @@ class Course(models.Model):
     code = models.CharField(max_length=10, primary_key=True)  # e.g., IRT31
     title = models.CharField(max_length=100)
     credits = models.IntegerField()
-    cm_hours = models.IntegerField()
-    td_hours = models.IntegerField()
-    tp_hours = models.IntegerField()
+    cm_hours = models.IntegerField()  # Planned CM hours
+    td_hours = models.IntegerField()  # Planned TD hours
+    tp_hours = models.IntegerField()  # Planned TP hours
+    cm_completed = models.IntegerField(default=0)  # Completed CM hours
+    td_completed = models.IntegerField(default=0)  # Completed TD hours
+    tp_completed = models.IntegerField(default=0)  # Completed TP hours
+    exam_sn = models.FloatField(null=True, blank=True)  # Exam SN (manually entered)
+    exam_sr = models.FloatField(null=True, blank=True)  # Exam SR (manually entered)
 
     def __str__(self):
         return f"{self.code} - {self.title}"
+
+    def progress_cm(self):
+        return (self.cm_completed / self.cm_hours) * 100 if self.cm_hours > 0 else 0
+
+    def progress_td(self):
+        return (self.td_completed / self.td_hours) * 100 if self.td_hours > 0 else 0
+
+    def progress_tp(self):
+        return (self.tp_completed / self.tp_hours) * 100 if self.tp_hours > 0 else 0
+
+    def total_progress(self):
+        total_planned = self.cm_hours + self.td_hours + self.tp_hours
+        total_completed = self.cm_completed + self.td_completed + self.tp_completed
+        return (total_completed / total_planned) * 100 if total_planned > 0 else 0
 
 class Professor(models.Model):
     name = models.CharField(max_length=100)

@@ -5,185 +5,517 @@
 {% block extra_css %}
 <style>
     .table-responsive {
-        max-height: calc(100vh - 150px);
+        max-height: calc(100vh - 250px);
         overflow-y: auto;
     }
-
+    
     .editable:hover {
         background-color: #f8f9fa;
         cursor: pointer;
     }
-
+    
     .editing {
         padding: 0 !important;
     }
-
+    
     .editing input {
         width: 100%;
         height: 100%;
         border: none;
         padding: 8px;
-        background-color: #fff;
     }
-
+    
+    .progress {
+        height: 20px;
+        margin-bottom: 0;
+    }
+    
+    .progress-bar {
+        min-width: 2em;
+    }
+    
     .progress-cell {
-        font-weight: bold;
+        min-width: 150px;
     }
-
-    .section-header {
-        background-color: #f8f9fa;
-        font-weight: bold;
-        text-align: center;
-        padding: 10px;
+    
+    .hours-cell {
+        white-space: nowrap;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="container mt-4">
     <h2>Bilan des Cours</h2>
-    <button class="btn btn-primary mb-3" onclick="location.reload()">Rafraîchir</button>
+    
     <div class="table-responsive">
-        <table class="table table-bordered table-hover">
+        <table class="table table-striped">
             <thead>
                 <tr>
-                    <th>CodeEM</th>
+                    <th>Code</th>
                     <th>Titre</th>
-                    <th>Crédits EM</th>
-                    <th>CM Planifié</th>
-                    <th>CM Réalisé</th>
-                    <th>% CM</th>
-                    <th>TD Planifié</th>
-                    <th>TD Réalisé</th>
-                    <th>% TD</th>
-                    <th>TP Planifié</th>
-                    <th>TP Réalisé</th>
-                    <th>% TP</th>
-                    <th>Total Planifié</th>
-                    <th>Total Réalisé</th>
-                    <th>% Total</th>
+                    <th>Crédits</th>
+                    <th colspan="2">CM</th>
+                    <th colspan="2">TD</th>
+                    <th colspan="2">TP</th>
+                    <th colspan="2">Devoir</th>
+                    <th colspan="2">Examen</th>
+                    <th>Total</th>
                 </tr>
             </thead>
             <tbody>
                 {% for course in courses %}
-                <tr>
+                <tr data-course-code="{{ course.code }}">
                     <td>{{ course.code }}</td>
                     <td>{{ course.title }}</td>
                     <td>{{ course.credits }}</td>
-                    <td>{{ course.cm_hours }}</td>
-                    <td class="editable" data-field="cm_completed" data-course-code="{{ course.code }}">{{ course.cm_completed }}</td>
-                    <td class="progress-cell">{{ course.progress_cm|floatformat:2 }}%</td>
-                    <td>{{ course.td_hours }}</td>
-                    <td class="editable" data-field="td_completed" data-course-code="{{ course.code }}">{{ course.td_completed }}</td>
-                    <td class="progress-cell">{{ course.progress_td|floatformat:2 }}%</td>
-                    <td>{{ course.tp_hours }}</td>
-                    <td class="editable" data-field="tp_completed" data-course-code="{{ course.code }}">{{ course.tp_completed }}</td>
-                    <td class="progress-cell">{{ course.progress_tp|floatformat:2 }}%</td>
-                    <td>{{ course.cm_hours|add:course.td_hours|add:course.tp_hours }}</td>
-                    <td>{{ course.cm_completed|add:course.td_completed|add:course.tp_completed }}</td>
-                    <td class="progress-cell">{{ course.total_progress|floatformat:2 }}%</td>
+                    
+                    <!-- CM -->
+                    <td class="hours-cell">
+                        <span class="editable" data-field="cm_completed">{{ course.cm_completed }}</span>
+                        /{{ course.cm_hours }}
+                    </td>
+                    <td class="progress-cell">
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" 
+                                role="progressbar" 
+                                style="width: {{ course.progress_cm }}%"
+                                aria-valuenow="{{ course.progress_cm }}" 
+                                aria-valuemin="0" 
+                                aria-valuemax="100">
+                                {{ course.progress_cm|floatformat:1 }}%
+                            </div>
+                        </div>
+                    </td>
+                    
+                    <!-- TD -->
+                    <td class="hours-cell">
+                        <span class="editable" data-field="td_completed">{{ course.td_completed }}</span>
+                        /{{ course.td_hours }}
+                    </td>
+                    <td class="progress-cell">
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" 
+                                role="progressbar" 
+                                style="width: {{ course.progress_td }}%"
+                                aria-valuenow="{{ course.progress_td }}" 
+                                aria-valuemin="0" 
+                                aria-valuemax="100">
+                                {{ course.progress_td|floatformat:1 }}%
+                            </div>
+                        </div>
+                    </td>
+                    
+                    <!-- TP -->
+                    <td class="hours-cell">
+                        <span class="editable" data-field="tp_completed">{{ course.tp_completed }}</span>
+                        /{{ course.tp_hours }}
+                    </td>
+                    <td class="progress-cell">
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-info" 
+                                role="progressbar" 
+                                style="width: {{ course.progress_tp }}%"
+                                aria-valuenow="{{ course.progress_tp }}" 
+                                aria-valuemin="0" 
+                                aria-valuemax="100">
+                                {{ course.progress_tp|floatformat:1 }}%
+                            </div>
+                        </div>
+                    </td>
+                    
+                    <!-- Devoir -->
+                    <td class="hours-cell">
+                        <span class="editable" data-field="devoir_completed">{{ course.devoir_completed }}</span>
+                        /{{ course.devoir_hours }}
+                    </td>
+                    <td class="progress-cell">
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-warning" 
+                                role="progressbar" 
+                                style="width: {{ course.progress_devoir }}%"
+                                aria-valuenow="{{ course.progress_devoir }}" 
+                                aria-valuemin="0" 
+                                aria-valuemax="100">
+                                {{ course.progress_devoir|floatformat:1 }}%
+                            </div>
+                        </div>
+                    </td>
+                    
+                    <!-- Examen -->
+                    <td class="hours-cell">
+                        <span class="editable" data-field="exam_completed">{{ course.exam_completed }}</span>
+                        /{{ course.exam_hours|floatformat:2 }}
+                    </td>
+                    <td class="progress-cell">
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-danger" 
+                                role="progressbar" 
+                                style="width: {{ course.progress_exam }}%"
+                                aria-valuenow="{{ course.progress_exam }}" 
+                                aria-valuemin="0" 
+                                aria-valuemax="100">
+                                {{ course.progress_exam|floatformat:1 }}%
+                            </div>
+                        </div>
+                    </td>
+                    
+                    <!-- Total -->
+                    <td class="progress-cell">
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-dark" 
+                                role="progressbar" 
+                                style="width: {{ course.total_progress }}"
+                                aria-valuenow="{{ course.total_progress }}" 
+                                aria-valuemin="0" 
+                                aria-valuemax="100">
+                                {{ course.total_progress|floatformat:1 }}%
+                            </div>
+                        </div>
+                    </td>
                 </tr>
                 {% endfor %}
+                
+                <!-- Ligne des totaux -->
+                <tr class="table-dark">
+                    <td colspan="3" class="text-end fw-bold">Total :</td>
+                    
+                    <!-- Total CM -->
+                    <td class="hours-cell text-white">
+                        {{ totals.cm.completed }}/{{ totals.cm.hours }}
+                    </td>
+                    <td class="progress-cell">
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" 
+                                role="progressbar" 
+                                style="width: {{ totals.cm.progress }}%"
+                                aria-valuenow="{{ totals.cm.progress }}" 
+                                aria-valuemin="0" 
+                                aria-valuemax="100">
+                                {{ totals.cm.progress }}%
+                            </div>
+                        </div>
+                    </td>
+                    
+                    <!-- Total TD -->
+                    <td class="hours-cell text-white">
+                        {{ totals.td.completed }}/{{ totals.td.hours }}
+                    </td>
+                    <td class="progress-cell">
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" 
+                                role="progressbar" 
+                                style="width: {{ totals.td.progress }}%"
+                                aria-valuenow="{{ totals.td.progress }}" 
+                                aria-valuemin="0" 
+                                aria-valuemax="100">
+                                {{ totals.td.progress }}%
+                            </div>
+                        </div>
+                    </td>
+                    
+                    <!-- Total TP -->
+                    <td class="hours-cell text-white">
+                        {{ totals.tp.completed }}/{{ totals.tp.hours }}
+                    </td>
+                    <td class="progress-cell">
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-info" 
+                                role="progressbar" 
+                                style="width: {{ totals.tp.progress }}%"
+                                aria-valuenow="{{ totals.tp.progress }}" 
+                                aria-valuemin="0" 
+                                aria-valuemax="100">
+                                {{ totals.tp.progress }}%
+                            </div>
+                        </div>
+                    </td>
+                    
+                    <!-- Total Devoir -->
+                    <td class="hours-cell text-white">
+                        {{ totals.devoir.completed }}/{{ totals.devoir.hours }}
+                    </td>
+                    <td class="progress-cell">
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-warning" 
+                                role="progressbar" 
+                                style="width: {{ totals.devoir.progress }}%"
+                                aria-valuenow="{{ totals.devoir.progress }}" 
+                                aria-valuemin="0" 
+                                aria-valuemax="100">
+                                {{ totals.devoir.progress }}%
+                            </div>
+                        </div>
+                    </td>
+                    
+                    <!-- Total Exam -->
+                    <td class="hours-cell text-white">
+                        {{ totals.exam.completed }}/{{ totals.exam.hours }}
+                    </td>
+                    <td class="progress-cell">
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-danger" 
+                                role="progressbar" 
+                                style="width: {{ totals.exam.progress }}%"
+                                aria-valuenow="{{ totals.exam.progress }}" 
+                                aria-valuemin="0" 
+                                aria-valuemax="100">
+                                {{ totals.exam.progress }}%
+                            </div>
+                        </div>
+                    </td>
+                    
+                    <!-- Total Global -->
+                    <td class="progress-cell">
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-dark" 
+                                role="progressbar" 
+                                style="width: {{ totals.global.progress }}%"
+                                aria-valuenow="{{ totals.global.progress }}" 
+                                aria-valuemin="0" 
+                                aria-valuemax="100">
+                                {{ totals.global.progress }}%
+                            </div>
+                        </div>
+                    </td>
+                </tr>
             </tbody>
         </table>
     </div>
+    
+    <!-- Résumé du bilan -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h4>Résumé du Bilan</h4>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-2">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">CM</h5>
+                            <p class="card-text">
+                                {{ totals.cm.completed }}/{{ totals.cm.hours }} heures<br>
+                                <strong>{{ totals.cm.progress }}%</strong>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">TD</h5>
+                            <p class="card-text">
+                                {{ totals.td.completed }}/{{ totals.td.hours }} heures<br>
+                                <strong>{{ totals.td.progress }}%</strong>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">TP</h5>
+                            <p class="card-text">
+                                {{ totals.tp.completed }}/{{ totals.tp.hours }} heures<br>
+                                <strong>{{ totals.tp.progress }}%</strong>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Devoir</h5>
+                            <p class="card-text">
+                                {{ totals.devoir.completed }}/{{ totals.devoir.hours }} heures<br>
+                                <strong>{{ totals.devoir.progress }}%</strong>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Examen</h5>
+                            <p class="card-text">
+                                {{ totals.exam.completed }}/{{ totals.exam.hours }} heures<br>
+                                <strong>{{ totals.exam.progress }}%</strong>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Total</h5>
+                            <p class="card-text">
+                                {{ totals.global.completed }}/{{ totals.global.hours }} heures<br>
+                                <strong>{{ totals.global.progress }}%</strong>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Soutenances -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h4>Soutenances</h4>
+        </div>
+        <div class="card-body">
+            {% if soutenances %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Heure</th>
+                            <th>Salle</th>
+                            <th>Jury</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for soutenance in soutenances %}
+                        <tr>
+                            <td>{{ soutenance.date }}</td>
+                            <td>{{ soutenance.heure_debut }} - {{ soutenance.heure_fin }}</td>
+                            <td>{{ soutenance.salle.number }}</td>
+                            <td>
+                                {% for prof in soutenance.jury.all %}
+                                {{ prof.name }}{% if not forloop.last %}, {% endif %}
+                                {% endfor %}
+                            </td>
+                            <td>{{ soutenance.description }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p>Aucune soutenance planifiée.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Encadrement Militaire -->
+    <div class="card mt-4 mb-4">
+        <div class="card-header">
+            <h4>Encadrement Militaire</h4>
+        </div>
+        <div class="card-body">
+            {% if encadrements %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Heure</th>
+                            <th>Lieu</th>
+                            <th>Responsable</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for encadrement in encadrements %}
+                        <tr>
+                            <td>{{ encadrement.date }}</td>
+                            <td>{{ encadrement.heure_debut }} - {{ encadrement.heure_fin }}</td>
+                            <td>{{ encadrement.lieu }}</td>
+                            <td>{{ encadrement.responsable }}</td>
+                            <td>{{ encadrement.description }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p>Aucun encadrement militaire planifié.</p>
+            {% endif %}
+        </div>
+    </div>
 </div>
 {% endblock %}
+
 {% block extra_js %}
 <script>
-    $(document).ready(function() {
-        console.log("JavaScript loaded!"); // Debug: Check if JS is running
-    
-        // Function to calculate progress
-        function calculateProgress(completed, planned) {
-            return planned > 0 ? ((completed / planned) * 100).toFixed(2) : 0;
-        }
-    
-        // Function to update progress percentages
-        function updateProgress(cell) {
-            console.log("Updating progress..."); // Debug: Check if function is called
-    
-            const row = cell.closest('tr');
-            const cmPlanned = parseFloat(row.find('td:nth-child(4)').text());
-            const cmCompleted = parseFloat(row.find('td:nth-child(5)').text());
-            const tdPlanned = parseFloat(row.find('td:nth-child(7)').text());
-            const tdCompleted = parseFloat(row.find('td:nth-child(8)').text());
-            const tpPlanned = parseFloat(row.find('td:nth-child(10)').text());
-            const tpCompleted = parseFloat(row.find('td:nth-child(11)').text());
-    
-            console.log("CM Planned:", cmPlanned, "CM Completed:", cmCompleted); // Debug: Check values
-            console.log("TD Planned:", tdPlanned, "TD Completed:", tdCompleted); // Debug: Check values
-            console.log("TP Planned:", tpPlanned, "TP Completed:", tpCompleted); // Debug: Check values
-    
-            // Update CM progress
-            const cmProgress = calculateProgress(cmCompleted, cmPlanned);
-            row.find('td:nth-child(6)').text(`${cmProgress}%`);
-    
-            // Update TD progress
-            const tdProgress = calculateProgress(tdCompleted, tdPlanned);
-            row.find('td:nth-child(9)').text(`${tdProgress}%`);
-    
-            // Update TP progress
-            const tpProgress = calculateProgress(tpCompleted, tpPlanned);
-            row.find('td:nth-child(12)').text(`${tpProgress}%`);
-    
-            // Update Total progress
-            const totalPlanned = cmPlanned + tdPlanned + tpPlanned;
-            const totalCompleted = cmCompleted + tdCompleted + tpCompleted;
-            const totalProgress = calculateProgress(totalCompleted, totalPlanned);
-            row.find('td:nth-child(15)').text(`${totalProgress}%`);
-    
-            console.log("Progress updated!"); // Debug: Check if progress is updated
-        }
-    
-        // Make cells editable on click
-        $('.editable').on('click', function() {
-            console.log("Cell clicked!"); // Debug: Check if cell is clicked
-            const cell = $(this);
-            const value = cell.text().trim();
-            const input = $('<input type="text">').val(value);
-            cell.html(input).addClass('editing');
-            input.focus();
-        });
-    
-        // Handle input blur
-        $(document).on('blur', '.editing input', function() {
-            console.log("Input blurred!"); // Debug: Check if input is blurred
-            const cell = $(this).parent();
-            const newValue = $(this).val();
-            const field = cell.data('field');
-            const courseCode = cell.data('course-code');
-    
-            console.log("New Value:", newValue); // Debug: Check new value
-            console.log("Field:", field); // Debug: Check field
-            console.log("Course Code:", courseCode); // Debug: Check course code
-    
-            // Update the cell content
-            cell.html(newValue).removeClass('editing');
-    
-            // Update progress percentages
-            updateProgress(cell);
-    
-            // Send the update to the server
-            $.ajax({
-                url: '{% url "update_bilan" %}',  // Ensure this matches the name in urls.py
-                method: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({
-                    course_code: courseCode,
-                    field: field,
-                    value: newValue
-                }),
-                success: function(response) {
-                    console.log("Server response:", response);
-                    if (response.status !== 'success') {
-                        alert('Failed to update');
-                    }
-                },
-                error: function(xhr) {
-                    console.error("Error:", xhr.responseText);
-                    alert('Error: ' + xhr.responseText);
+$(document).ready(function() {
+    // Fonction pour mettre à jour une cellule
+    function updateCell(courseId, field, value) {
+        $.ajax({
+            url: '{% url "update_bilan" %}',
+            method: 'POST',
+            data: {
+                course_id: courseId,
+                field: field,
+                value: value,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.status === 'success') {
+                    // Mettre à jour les barres de progression
+                    const row = $(`tr[data-course-code="${courseId}"]`);
+                    
+                    // Mettre à jour CM
+                    row.find('.progress-bar[aria-valuenow]').each(function() {
+                        const type = $(this).closest('td').prev().find('.editable').data('field').split('_')[0];
+                        const progress = response[`progress_${type}`];
+                        $(this).css('width', `${progress}%`);
+                        $(this).attr('aria-valuenow', progress);
+                        $(this).text(`${progress.toFixed(1)}%`);
+                    });
+                    
+                    // Mettre à jour le total
+                    const totalBar = row.find('.progress-bar').last();
+                    totalBar.css('width', `${response.total_progress}%`);
+                    totalBar.attr('aria-valuenow', response.total_progress);
+                    totalBar.text(`${response.total_progress.toFixed(1)}%`);
+                } else {
+                    alert(response.message || 'Une erreur est survenue');
+                    // Restaurer l'ancienne valeur
+                    $(this).text(response.original_value);
                 }
-            });
+            },
+            error: function(xhr) {
+                alert('Une erreur est survenue');
+                location.reload();
+            }
+        });
+    }
+
+    // Rendre les cellules éditables
+    $('.editable').click(function() {
+        const cell = $(this);
+        const currentValue = cell.text();
+        const field = cell.data('field');
+        const courseId = cell.closest('tr').data('course-code');
+        
+        const input = $('<input>')
+            .attr('type', 'number')
+            .val(currentValue)
+            .addClass('form-control form-control-sm');
+        
+        cell.html(input);
+        input.focus();
+        
+        input.blur(function() {
+            const newValue = $(this).val();
+            cell.html(currentValue);  // Restaurer temporairement l'ancienne valeur
+            
+            if (newValue !== currentValue) {
+                updateCell(courseId, field, newValue);
+            }
+        });
+        
+        input.keypress(function(e) {
+            if (e.which === 13) {  // Touche Entrée
+                $(this).blur();
+            }
+        });
+    });
+});
 </script>
 {% endblock %}

@@ -1,0 +1,179 @@
+{% extends 'schedule/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid p-4">
+    <h2 class="mb-4">Gestion des Salles</h2>
+    
+    <!-- Add Room Form -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Ajouter une salle</h4>
+        </div>
+        <div class="card-body">
+            <form id="addRoomForm" class="row g-3">
+                <div class="col-md-4">
+                    <input type="text" class="form-control" name="number" placeholder="Numéro de salle" required>
+                </div>
+                <div class="col-md-4">
+                    <select class="form-control" name="type" required>
+                        <option value="">Type de salle</option>
+                        <option value="CM">Salle de cours</option>
+                        <option value="TP">Salle TP</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary">Ajouter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Rooms List -->
+    <div class="card">
+        <div class="card-header">
+            <h4>Liste des Salles</h4>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead>
+                        <tr>
+                            <th>Numéro</th>
+                            <th>Type</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="roomTableBody">
+                        {% for room in rooms %}
+                        <tr data-room-id="{{ room.id }}">
+                            <td class="editable" data-field="number">{{ room.number }}</td>
+                            <td class="editable" data-field="type">{{ room.get_type_display }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-danger delete-room">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Handle form submission
+    $('#addRoomForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            number: $('input[name="number"]').val(),
+            type: $('select[name="type"]').val(),
+            csrfmiddlewaretoken: '{{ csrf_token }}'
+        };
+        
+        $.ajax({
+            url: '{% url "add_room" %}',
+            method: 'POST',
+            data: formData,
+            success: function(response) {
+                if (response.status === 'success') {
+                    location.reload();
+                } else {
+                    alert('Erreur: ' + response.message);
+                }
+            },
+            error: function(xhr) {
+                alert('Erreur lors de l\'ajout de la salle');
+            }
+        });
+    });
+
+    // Make cells editable
+    $('.editable').on('click', function() {
+        if (!$(this).hasClass('editing')) {
+            const value = $(this).text().trim();
+            if ($(this).data('field') === 'type') {
+                const select = $('<select class="form-control">')
+                    .append('<option value="CM">Salle de cours</option>')
+                    .append('<option value="TP">Salle TP</option>')
+                    .val(value === 'Salle de cours' ? 'CM' : 'TP');
+                $(this).html(select).addClass('editing');
+                select.focus();
+            } else {
+                const input = $('<input type="text">').val(value);
+                $(this).html(input).addClass('editing');
+                input.focus();
+            }
+        }
+    });
+
+    // Handle cell updates
+    $(document).on('blur', '.editing input, .editing select', function() {
+        const cell = $(this).parent();
+        const newValue = $(this).val();
+        const roomId = cell.closest('tr').data('room-id');
+        const field = cell.data('field');
+        
+        $.ajax({
+            url: '{% url "update_room" %}',
+            method: 'POST',
+            data: {
+                room_id: roomId,
+                field: field,
+                value: newValue,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.status === 'success') {
+                    if (field === 'type') {
+                        cell.html(newValue === 'CM' ? 'Salle de cours' : 'Salle TP').removeClass('editing');
+                    } else {
+                        cell.html(newValue).removeClass('editing');
+                    }
+                } else {
+                    alert('Erreur: ' + response.message);
+                    cell.html(response.original_value).removeClass('editing');
+                }
+            },
+            error: function() {
+                alert('Erreur lors de la mise à jour');
+                cell.html(value).removeClass('editing');
+            }
+        });
+    });
+
+    // Handle delete room
+    $(document).on('click', '.delete-room', function() {
+        if (confirm('Êtes-vous sûr de vouloir supprimer cette salle ?')) {
+            const row = $(this).closest('tr');
+            const roomId = row.data('room-id');
+            
+            $.ajax({
+                url: '{% url "delete_room" %}',
+                method: 'POST',
+                data: {
+                    room_id: roomId,
+                    csrfmiddlewaretoken: '{{ csrf_token }}'
+                },
+                success: function(response) {
+                    if (response.status === 'success') {
+                        row.remove();
+                    } else {
+                        alert('Erreur: ' + response.message);
+                    }
+                },
+                error: function() {
+                    alert('Erreur lors de la suppression');
+                }
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

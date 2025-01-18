@@ -1,101 +1,11 @@
 {% extends 'schedule/base.html' %}
 {% load static %}
 
-{% block content %}
-<div class="container-fluid">
-    <div class="table-responsive">
-        <table class="table table-bordered table-hover">
-            <thead class="sticky-top bg-light">
-                <tr>
-                    <th>CodeEM</th>
-                    <th>Titre</th>
-                    <th>Crédits EM</th>
-                    <th>Coefficient</th>
-                    <th>CM</th>
-                    <th>TD</th>
-                    <th>TP</th>
-                    <th>MP</th>
-                    <th>VHT EM</th>
-                    <th>CM</th>
-                    <th>TD</th>
-                    <th>TP</th>
-                    <th>MP</th>
-                    <th>Salle_CM</th>
-                    <th>Salle_TP</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody id="courseTableBody">
-                {% for course in courses %}
-                <tr data-course-id="{{ course.id }}">
-                    <td class="editable" data-field="code">{{ course.code }}</td>
-                    <td class="editable" data-field="title">{{ course.title }}</td>
-                    <td class="editable" data-field="credits">{{ course.credits }}</td>
-                    <td class="editable" data-field="coefficient">{{ course.coefficient|default:'' }}</td>
-                    <td class="editable" data-field="cm_hours">{{ course.cm_hours }}</td>
-                    <td class="editable" data-field="td_hours">{{ course.td_hours }}</td>
-                    <td class="editable" data-field="tp_hours">{{ course.tp_hours }}</td>
-                    <td class="editable" data-field="mp_hours">{{ course.mp_hours|default:'0' }}</td>
-                    <td class="editable" data-field="vht">{{ course.vht|default:'' }}</td>
-                    <td class="editable" data-field="cm_professor">
-                        {% for assignment in course.courseassignment_set.all %}
-                            {% if assignment.type == 'CM' %}{{ assignment.professor.name }}{% endif %}
-                        {% endfor %}
-                    </td>
-                    <td class="editable" data-field="td_professor">
-                        {% for assignment in course.courseassignment_set.all %}
-                            {% if assignment.type == 'TD' %}{{ assignment.professor.name }}{% endif %}
-                        {% endfor %}
-                    </td>
-                    <td class="editable" data-field="tp_professor">
-                        {% for assignment in course.courseassignment_set.all %}
-                            {% if assignment.type == 'TP' %}{{ assignment.professor.name }}{% endif %}
-                        {% endfor %}
-                    </td>
-                    <td class="editable" data-field="mp_professor">
-                        {% for assignment in course.courseassignment_set.all %}
-                            {% if assignment.type == 'MP' %}{{ assignment.professor.name }}{% endif %}
-                        {% endfor %}
-                    </td>
-                    <td class="editable" data-field="cm_room">
-                        {% for assignment in course.courseassignment_set.all %}
-                            {% if assignment.type == 'CM' %}{{ assignment.room.number }}{% endif %}
-                        {% endfor %}
-                    </td>
-                    <td class="editable" data-field="tp_room">
-                        {% for assignment in course.courseassignment_set.all %}
-                            {% if assignment.type == 'TP' %}{{ assignment.room.number }}{% endif %}
-                        {% endfor %}
-                    </td>
-                    <td>
-                        <button class="btn btn-sm btn-primary edit-row">
-                            <i class="fas fa-edit" style="color: #0d6efd;"></i>
-                        </button>
-                        <button class="btn btn-sm btn-danger delete-row">
-                            <i class="fas fa-trash" style="color: #dc3545;"></i>
-                        </button>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    <button id="addNewRow" class="btn btn-success mt-3">
-        <i class="fas fa-plus"></i> Add New Course
-    </button>
-</div>
-
+{% block extra_css %}
 <style>
     .table-responsive {
-        max-height: calc(100vh - 150px);
+        max-height: calc(100vh - 250px);
         overflow-y: auto;
-    }
-    
-    .sticky-top {
-        position: sticky;
-        top: 0;
-        z-index: 1;
-        background-color: #f8f9fa;
     }
     
     .editable:hover {
@@ -112,33 +22,222 @@
         height: 100%;
         border: none;
         padding: 8px;
-        background-color: #fff;
+    }
+    
+    .add-course-form {
+        background-color: #f8f9fa;
+        padding: 20px;
+        border-radius: 5px;
+        margin-bottom: 20px;
     }
 
-    .btn-sm {
-        padding: 0.25rem 0.5rem;
-        border: none;
-        background: transparent;
-    }
-
-    .btn-sm:hover {
-        background-color: rgba(0, 0, 0, 0.05);
-    }
-
-    .btn-primary i {
-        color: #0d6efd !important;
-    }
-
-    .btn-danger i {
-        color: #dc3545 !important;
+    .sticky-top {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background-color: #f8f9fa;
     }
 </style>
 {% endblock %}
 
-{% block extrajs %}
+{% block content %}
+<div class="container-fluid p-4">
+    <h2 class="mb-4">Base de données des cours</h2>
+    
+    <!-- Add Course Form -->
+    <div class="add-course-form">
+        <h4>Ajouter un nouveau cours</h4>
+        <form id="addCourseForm" class="row g-3">
+            <div class="col-md-2">
+                <input type="text" class="form-control" name="code" placeholder="Code EM" required>
+            </div>
+            <div class="col-md-3">
+                <input type="text" class="form-control" name="title" placeholder="Titre" required>
+            </div>
+            <div class="col-md-1">
+                <input type="number" class="form-control" name="credits" placeholder="Crédits" required>
+            </div>
+            <div class="col-md-1">
+                <input type="number" class="form-control" name="coefficient" placeholder="Coef">
+            </div>
+            <div class="col-md-1">
+                <input type="number" class="form-control" name="cm_hours" placeholder="CM" required>
+            </div>
+            <div class="col-md-1">
+                <input type="number" class="form-control" name="td_hours" placeholder="TD" required>
+            </div>
+            <div class="col-md-1">
+                <input type="number" class="form-control" name="tp_hours" placeholder="TP" required>
+            </div>
+            <div class="col-md-2">
+                <select class="form-control" name="cm_professor">
+                    <option value="">Prof CM</option>
+                    {% for prof in professors %}
+                    <option value="{{ prof.id }}">{{ prof.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select class="form-control" name="td_professor">
+                    <option value="">Prof TD</option>
+                    {% for prof in professors %}
+                    <option value="{{ prof.id }}">{{ prof.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select class="form-control" name="tp_professor">
+                    <option value="">Prof TP</option>
+                    {% for prof in professors %}
+                    <option value="{{ prof.id }}">{{ prof.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select class="form-control" name="cm_room">
+                    <option value="">Salle CM</option>
+                    {% for room in rooms %}
+                    <option value="{{ room.id }}">{{ room.number }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select class="form-control" name="tp_room">
+                    <option value="">Salle TP</option>
+                    {% for room in rooms %}
+                    <option value="{{ room.id }}">{{ room.number }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary">Ajouter</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover">
+            <thead class="sticky-top bg-light">
+                <tr>
+                    <th>CodeEM</th>
+                    <th>Titre</th>
+                    <th>Crédits EM</th>
+                    <th>Coefficient</th>
+                    <th>CM</th>
+                    <th>TD</th>
+                    <th>TP</th>
+                    <th>VHT EM</th>
+                    <th>Prof CM</th>
+                    <th>Prof TD</th>
+                    <th>Prof TP</th>
+                    <th>Salle CM</th>
+                    <th>Salle TP</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="courseTableBody">
+                {% for course in courses %}
+                <tr data-course-id="{{ course.id }}">
+                    <td class="editable" data-field="code">{{ course.code }}</td>
+                    <td class="editable" data-field="title">{{ course.title }}</td>
+                    <td class="editable" data-field="credits">{{ course.credits }}</td>
+                    <td class="editable" data-field="coefficient">{{ course.coefficient|default:'' }}</td>
+                    <td class="editable" data-field="cm_hours">{{ course.cm_hours }}</td>
+                    <td class="editable" data-field="td_hours">{{ course.td_hours }}</td>
+                    <td class="editable" data-field="tp_hours">{{ course.tp_hours }}</td>
+                    <td>{{ course.cm_hours|add:course.td_hours|add:course.tp_hours }}</td>
+                    <td class="editable" data-field="cm_professor">
+                        {% for assignment in course.courseassignment_set.all %}
+                            {% if assignment.type == 'CM' %}{{ assignment.professor.name }}{% endif %}
+                        {% endfor %}
+                    </td>
+                    <td class="editable" data-field="td_professor">
+                        {% for assignment in course.courseassignment_set.all %}
+                            {% if assignment.type == 'TD' %}{{ assignment.professor.name }}{% endif %}
+                        {% endfor %}
+                    </td>
+                    <td class="editable" data-field="tp_professor">
+                        {% for assignment in course.courseassignment_set.all %}
+                            {% if assignment.type == 'TP' %}{{ assignment.professor.name }}{% endif %}
+                        {% endfor %}
+                    </td>
+                    <td class="editable" data-field="cm_room">
+                        {% for assignment in course.courseassignment_set.all %}
+                            {% if assignment.type == 'CM' %}{{ assignment.room.number }}{% endif %}
+                        {% endfor %}
+                    </td>
+                    <td class="editable" data-field="tp_room">
+                        {% for assignment in course.courseassignment_set.all %}
+                            {% if assignment.type == 'TP' %}{{ assignment.room.number }}{% endif %}
+                        {% endfor %}
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-danger delete-course">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
 <script>
 $(document).ready(function() {
-    // Make cells editable on click
+    // Handle form submission
+    $('#addCourseForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            code: $('input[name="code"]').val(),
+            title: $('input[name="title"]').val(),
+            credits: $('input[name="credits"]').val(),
+            coefficient: $('input[name="coefficient"]').val(),
+            cm_hours: $('input[name="cm_hours"]').val(),
+            td_hours: $('input[name="td_hours"]').val(),
+            tp_hours: $('input[name="tp_hours"]').val(),
+            cm_professor: $('select[name="cm_professor"]').val(),
+            td_professor: $('select[name="td_professor"]').val(),
+            tp_professor: $('select[name="tp_professor"]').val(),
+            cm_room: $('select[name="cm_room"]').val(),
+            tp_room: $('select[name="tp_room"]').val()
+        };
+        
+        $.ajax({
+            url: '{% url "add_course" %}',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.status === 'success') {
+                    alert('Cours ajouté avec succès');
+                    location.reload();
+                } else {
+                    alert('Erreur: ' + response.message);
+                }
+            },
+            error: function(xhr) {
+                let errorMessage = 'Erreur lors de l\'ajout du cours';
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.message) {
+                        errorMessage = response.message;
+                    }
+                } catch (e) {
+                    console.error("Error parsing response:", xhr.responseText);
+                }
+                alert(errorMessage);
+            }
+        });
+    });
+
+    // Make cells editable
     $('.editable').on('click', function() {
         if (!$(this).hasClass('editing')) {
             const value = $(this).text().trim();
@@ -148,14 +247,11 @@ $(document).ready(function() {
         }
     });
 
-    // Handle input blur
+    // Handle cell updates
     $(document).on('blur', '.editing input', function() {
         const cell = $(this).parent();
         const newValue = $(this).val();
-        cell.html(newValue).removeClass('editing');
-        
-        // Save changes to database
-        const courseId = cell.parent().data('course-id');
+        const courseId = cell.closest('tr').data('course-id');
         const field = cell.data('field');
         
         $.ajax({
@@ -168,54 +264,26 @@ $(document).ready(function() {
                 csrfmiddlewaretoken: '{{ csrf_token }}'
             },
             success: function(response) {
-                if (response.success) {
-                    toastr.success('Updated successfully');
+                if (response.status === 'success') {
+                    cell.html(newValue).removeClass('editing');
                 } else {
-                    toastr.error('Update failed');
-                    // Revert the change if update failed
-                    cell.html(response.original_value);
+                    alert('Failed to update');
+                    cell.html(response.original_value).removeClass('editing');
                 }
             },
             error: function() {
-                toastr.error('Update failed');
+                alert('Error updating course');
+                cell.html(value).removeClass('editing');
             }
         });
     });
 
-    // Add new row
-    $('#addNewRow').on('click', function() {
-        const newRow = $('<tr>').append(
-            '<td class="editable" data-field="code"></td>' +
-            '<td class="editable" data-field="title"></td>' +
-            '<td class="editable" data-field="credits"></td>' +
-            '<td class="editable" data-field="coefficient"></td>' +
-            '<td class="editable" data-field="cm_hours"></td>' +
-            '<td class="editable" data-field="td_hours"></td>' +
-            '<td class="editable" data-field="tp_hours"></td>' +
-            '<td class="editable" data-field="mp_hours"></td>' +
-            '<td class="editable" data-field="vht"></td>' +
-            '<td class="editable" data-field="cm_professor"></td>' +
-            '<td class="editable" data-field="td_professor"></td>' +
-            '<td class="editable" data-field="tp_professor"></td>' +
-            '<td class="editable" data-field="mp_professor"></td>' +
-            '<td class="editable" data-field="cm_room"></td>' +
-            '<td class="editable" data-field="tp_room"></td>' +
-            '<td>' +
-            '<button class="btn btn-sm btn-primary edit-row"><i class="fas fa-edit" style="color: #0d6efd;"></i></button>' +
-            '<button class="btn btn-sm btn-danger delete-row"><i class="fas fa-trash" style="color: #dc3545;"></i></button>' +
-            '</td>'
-        );
-        
-        $('#courseTableBody').append(newRow);
-        newRow.find('td:first').click(); // Start editing the first cell
-    });
-
-    // Delete row
-    $(document).on('click', '.delete-row', function() {
-        const row = $(this).closest('tr');
-        const courseId = row.data('course-id');
-        
+    // Handle delete course
+    $(document).on('click', '.delete-course', function() {
         if (confirm('Are you sure you want to delete this course?')) {
+            const row = $(this).closest('tr');
+            const courseId = row.data('course-id');
+            
             $.ajax({
                 url: '{% url "delete_course" %}',
                 method: 'POST',
@@ -224,15 +292,15 @@ $(document).ready(function() {
                     csrfmiddlewaretoken: '{{ csrf_token }}'
                 },
                 success: function(response) {
-                    if (response.success) {
+                    if (response.status === 'success') {
                         row.remove();
-                        toastr.success('Course deleted successfully');
                     } else {
-                        toastr.error('Failed to delete course');
+                        alert('Failed to delete course: ' + response.message);
                     }
                 },
-                error: function() {
-                    toastr.error('Failed to delete course');
+                error: function(xhr) {
+                    console.error("Error:", xhr.responseText);
+                    alert('Error deleting course');
                 }
             });
         }

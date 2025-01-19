@@ -10,16 +10,13 @@
                     <th>Code</th>
                     <th>Title</th>
                     <th>Credits</th>
-                    <th>Coefficient</th>
                     <th>CM Hours</th>
                     <th>TD Hours</th>
                     <th>TP Hours</th>
-                    <th>MP Hours</th>
                     <th>VHT</th>
                     <th>CM Professor</th>
                     <th>TD Professor</th>
                     <th>TP Professor</th>
-                    <th>MP Professor</th>
                     <th>CM Room</th>
                     <th>TP Room</th>
                     <th>Actions</th>
@@ -31,11 +28,9 @@
                     <td class="editable" data-field="code">{{ course.code }}</td>
                     <td class="editable" data-field="title">{{ course.title }}</td>
                     <td class="editable" data-field="credits">{{ course.credits }}</td>
-                    <td class="editable" data-field="coefficient">{{ course.coefficient|default:'' }}</td>
                     <td class="editable" data-field="cm_hours">{{ course.cm_hours }}</td>
                     <td class="editable" data-field="td_hours">{{ course.td_hours }}</td>
                     <td class="editable" data-field="tp_hours">{{ course.tp_hours }}</td>
-                    <td class="editable" data-field="mp_hours">{{ course.mp_hours|default:'0' }}</td>
                     <td class="editable" data-field="vht">{{ course.vht|default:'' }}</td>
                     <td class="editable" data-field="cm_professor">
                         {% for assignment in course.courseassignment_set.all %}
@@ -50,11 +45,6 @@
                     <td class="editable" data-field="tp_professor">
                         {% for assignment in course.courseassignment_set.all %}
                             {% if assignment.type == 'TP' %}{{ assignment.professor.name }}{% endif %}
-                        {% endfor %}
-                    </td>
-                    <td class="editable" data-field="mp_professor">
-                        {% for assignment in course.courseassignment_set.all %}
-                            {% if assignment.type == 'MP' %}{{ assignment.professor.name }}{% endif %}
                         {% endfor %}
                     </td>
                     <td class="editable" data-field="cm_room">
@@ -73,6 +63,12 @@
                         </button>
                         <button class="btn btn-sm btn-danger delete-row">
                             <i class="fas fa-trash"></i>
+                        </button>
+                        <button class="btn btn-sm btn-success save-row" style="display: none;">
+                            <i class="fas fa-save"></i>
+                        </button>
+                        <button class="btn btn-sm btn-secondary cancel-row" style="display: none;">
+                            <i class="fas fa-times"></i>
                         </button>
                     </td>
                 </tr>
@@ -98,9 +94,19 @@
         background-color: #f8f9fa;
     }
     
-    .editable:hover {
-        background-color: #f8f9fa;
-        cursor: pointer;
+    .editable {
+        padding: 8px !important;
+    }
+    
+    .editing {
+        padding: 0 !important;
+    }
+    
+    .editing input {
+        width: 100%;
+        padding: 4px;
+        margin: 0;
+        border: 1px solid #007bff;
     }
     
     .form-control {
@@ -154,71 +160,116 @@ $(document).ready(function() {
         }
     });
 
-    // Make cells editable on click
-    $(document).on('click', '.editable', function() {
-        const cell = $(this);
-        const currentValue = cell.text().trim();
-        const field = cell.data('field');
+    // Edit row functionality
+    $(document).on('click', '.edit-row', function() {
+        const row = $(this).closest('tr');
+        const code = row.data('course-id');
         
-        // Don't make professor or room cells editable directly
-        if (field.includes('professor') || field.includes('room')) {
+        // Hide edit/delete buttons, show save/cancel buttons
+        row.find('.edit-row, .delete-row').hide();
+        row.find('.save-row, .cancel-row').show();
+        
+        // Make cells editable
+        row.find('.editable').each(function() {
+            const cell = $(this);
+            const field = cell.data('field');
+            const currentValue = cell.text().trim();
+            
+            // Skip professor and room fields for now
+            if (field.includes('professor') || field.includes('room')) {
+                return;
+            }
+            
+            // Create input
+            const input = $('<input>')
+                .attr('type', field === 'title' ? 'text' : 'number')
+                .attr('class', 'form-control')
+                .val(currentValue)
+                .data('original-value', currentValue);
+            
+            cell.html(input).addClass('editing');
+        });
+    });
+
+    // Save row changes
+    $(document).on('click', '.save-row', function() {
+        const row = $(this).closest('tr');
+        const code = row.data('course-id');
+        const updates = {};
+        let hasChanges = false;
+        
+        // Collect changed values
+        row.find('input').each(function() {
+            const input = $(this);
+            const cell = input.closest('td');
+            const field = cell.data('field');
+            const newValue = input.val();
+            const originalValue = input.data('original-value');
+            
+            if (newValue !== originalValue) {
+                updates[field] = newValue;
+                hasChanges = true;
+            }
+        });
+        
+        if (!hasChanges) {
+            // No changes, just restore the row
+            restoreRow(row);
             return;
         }
         
-        // Create input field
-        const input = $('<input>')
-            .attr('type', field === 'title' ? 'text' : 'number')
-            .attr('class', 'form-control')
-            .val(currentValue);
-        
-        // Replace cell content with input
-        cell.html(input);
-        input.focus();
-        
-        // Handle input blur
-        input.on('blur', function() {
-            const newValue = $(this).val();
-            if (newValue !== currentValue) {
-                const code = cell.closest('tr').data('course-id');
-                
-                // Send update to server
-                $.ajax({
-                    url: '{% url "update_course" %}',
-                    type: 'POST',
-                    data: JSON.stringify({
-                        code: code,
-                        field: field,
-                        value: newValue
-                    }),
-                    contentType: 'application/json',
-                    headers: {
-                        'X-CSRFToken': '{{ csrf_token }}'
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            cell.html(newValue);
-                        } else {
-                            cell.html(currentValue);
-                            alert('Error: ' + response.message);
-                        }
-                    },
-                    error: function(xhr) {
-                        cell.html(currentValue);
-                        alert('Error updating course: ' + xhr.responseText);
-                    }
-                });
-            } else {
-                cell.html(currentValue);
-            }
-        });
-        
-        // Handle enter key
-        input.on('keypress', function(e) {
-            if (e.which === 13) {
-                $(this).blur();
+        // Send updates to server
+        $.ajax({
+            url: '{% url "update_course" %}',
+            type: 'POST',
+            data: JSON.stringify({
+                code: code,
+                updates: updates
+            }),
+            contentType: 'application/json',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.success) {
+                    // Update cells with new values
+                    row.find('input').each(function() {
+                        const input = $(this);
+                        const cell = input.closest('td');
+                        cell.html(input.val()).removeClass('editing');
+                    });
+                    
+                    // Show edit/delete buttons, hide save/cancel
+                    row.find('.save-row, .cancel-row').hide();
+                    row.find('.edit-row, .delete-row').show();
+                } else {
+                    alert('Error: ' + response.message);
+                }
+            },
+            error: function(xhr) {
+                alert('Error updating course: ' + xhr.responseText);
             }
         });
     });
+
+    // Cancel row edit
+    $(document).on('click', '.cancel-row', function() {
+        const row = $(this).closest('tr');
+        restoreRow(row);
+    });
+
+    function restoreRow(row) {
+        // Restore original values
+        row.find('input').each(function() {
+            const input = $(this);
+            const cell = input.closest('td');
+            cell.html(input.data('original-value')).removeClass('editing');
+        });
+        
+        // Show edit/delete buttons, hide save/cancel
+        row.find('.save-row, .cancel-row').hide();
+        row.find('.edit-row, .delete-row').show();
+    }
 
     // Add new row functionality
     $('#addNewRow').on('click', function() {
@@ -233,16 +284,13 @@ $(document).ready(function() {
                 <td><input type="text" class="form-control" name="code" placeholder="Code" required></td>
                 <td><input type="text" class="form-control" name="title" placeholder="Title" required></td>
                 <td><input type="number" class="form-control" name="credits" placeholder="Credits" required></td>
-                <td><input type="number" class="form-control" name="coefficient" placeholder="Coefficient"></td>
                 <td><input type="number" class="form-control" name="cm_hours" placeholder="CM Hours" required></td>
                 <td><input type="number" class="form-control" name="td_hours" placeholder="TD Hours" required></td>
                 <td><input type="number" class="form-control" name="tp_hours" placeholder="TP Hours" required></td>
-                <td><input type="number" class="form-control" name="mp_hours" placeholder="MP Hours"></td>
                 <td><input type="number" class="form-control" name="vht" placeholder="VHT"></td>
                 <td><input type="text" class="form-control" name="cm_professor" placeholder="CM Professor"></td>
                 <td><input type="text" class="form-control" name="td_professor" placeholder="TD Professor"></td>
                 <td><input type="text" class="form-control" name="tp_professor" placeholder="TP Professor"></td>
-                <td><input type="text" class="form-control" name="mp_professor" placeholder="MP Professor"></td>
                 <td><input type="text" class="form-control" name="cm_room" placeholder="CM Room"></td>
                 <td><input type="text" class="form-control" name="tp_room" placeholder="TP Room"></td>
                 <td>
@@ -298,16 +346,13 @@ $(document).ready(function() {
                             <td class="editable" data-field="code">${response.course.code}</td>
                             <td class="editable" data-field="title">${response.course.title}</td>
                             <td class="editable" data-field="credits">${response.course.credits}</td>
-                            <td class="editable" data-field="coefficient">${response.course.coefficient || ''}</td>
                             <td class="editable" data-field="cm_hours">${response.course.cm_hours}</td>
                             <td class="editable" data-field="td_hours">${response.course.td_hours}</td>
                             <td class="editable" data-field="tp_hours">${response.course.tp_hours}</td>
-                            <td class="editable" data-field="mp_hours">${response.course.mp_hours || '0'}</td>
                             <td class="editable" data-field="vht">${response.course.vht || ''}</td>
                             <td class="editable" data-field="cm_professor">${response.course.cm_professor || ''}</td>
                             <td class="editable" data-field="td_professor">${response.course.td_professor || ''}</td>
                             <td class="editable" data-field="tp_professor">${response.course.tp_professor || ''}</td>
-                            <td class="editable" data-field="mp_professor">${response.course.mp_professor || ''}</td>
                             <td class="editable" data-field="cm_room">${response.course.cm_room || ''}</td>
                             <td class="editable" data-field="tp_room">${response.course.tp_room || ''}</td>
                             <td>
@@ -316,6 +361,12 @@ $(document).ready(function() {
                                 </button>
                                 <button class="btn btn-sm btn-danger delete-row">
                                     <i class="fas fa-trash"></i>
+                                </button>
+                                <button class="btn btn-sm btn-success save-row" style="display: none;">
+                                    <i class="fas fa-save"></i>
+                                </button>
+                                <button class="btn btn-sm btn-secondary cancel-row" style="display: none;">
+                                    <i class="fas fa-times"></i>
                                 </button>
                             </td>
                         </tr>

@@ -233,63 +233,34 @@ def save_plan(request):
 
 @csrf_exempt
 def update_course(request):
-    """Update a course field"""
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body) if request.body else request.POST
-            code = data.get('code')
-            field = data.get('field')
-            value = data.get('value')
-            
-            print(f"Updating course {code}, field {field} to {value}")  # Debug print
-            
-            if not all([code, field, value]):
-                return JsonResponse({
-                    'success': False,
-                    'message': 'Missing required fields: code, field, value'
-                })
-            
-            try:
-                course = Course.objects.get(code=code)
-                original_value = getattr(course, field)
-                
-                # Handle numeric fields
-                if field in ['credits', 'cm_hours', 'td_hours', 'tp_hours']:
-                    value = int(value)
-                
-                # Update the field
+    try:
+        data = json.loads(request.body)
+        code = data.get('code')
+        updates = data.get('updates', {})
+        
+        course = Course.objects.get(code=code)
+        
+        # Update each field
+        for field, value in updates.items():
+            if hasattr(course, field):
                 setattr(course, field, value)
-                course.save()
-                
-                print(f"Successfully updated course {code}")  # Debug print
-                
-                return JsonResponse({
-                    'success': True,
-                    'message': 'Course updated successfully'
-                })
-            except Course.DoesNotExist:
-                return JsonResponse({
-                    'success': False,
-                    'message': f'Course {code} not found'
-                })
-            except ValueError:
-                return JsonResponse({
-                    'success': False,
-                    'message': f'Invalid value for field {field}',
-                    'original_value': original_value
-                })
-            except Exception as e:
-                print(f"Error updating course: {str(e)}")  # Debug print
-                return JsonResponse({
-                    'success': False,
-                    'message': str(e),
-                    'original_value': original_value
-                })
-        except json.JSONDecodeError:
-            return JsonResponse({
-                'success': False,
-                'message': 'Invalid JSON data'
-            })
+        
+        course.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Course updated successfully'
+        })
+    except Course.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'message': 'Course not found'
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        }, status=400)
 
 @csrf_exempt
 def delete_course(request):

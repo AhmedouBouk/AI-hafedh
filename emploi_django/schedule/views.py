@@ -380,3 +380,110 @@ def update_bilan(request):
     except Exception as e:
         logger.error(f"Error in update_bilan: {str(e)}")
         return JsonResponse({'error': 'Server error'}, status=500)
+
+@csrf_exempt
+def add_course(request):
+    """Add a new course to the database"""
+    if request.method == 'POST':
+        try:
+            print("Received data:", request.POST)  # Debug print
+            
+            # Extract course data
+            course_data = {
+                'code': request.POST.get('code'),
+                'title': request.POST.get('title'),
+                'credits': int(request.POST.get('credits', 0)),
+                'cm_hours': int(request.POST.get('cm_hours', 0)),
+                'td_hours': int(request.POST.get('td_hours', 0)),
+                'tp_hours': int(request.POST.get('tp_hours', 0)),
+            }
+            
+            print("Processed course data:", course_data)  # Debug print
+            
+            # Validate required fields
+            required_fields = ['code', 'title', 'credits', 'cm_hours', 'td_hours', 'tp_hours']
+            missing_fields = [field for field in required_fields if not course_data.get(field)]
+            
+            if missing_fields:
+                return JsonResponse({
+                    'status': 'error',
+                    'error': f'Missing required fields: {", ".join(missing_fields)}'
+                }, status=400)
+            
+            # Create course
+            course = Course.objects.create(**course_data)
+            print(f"Created course: {course.code}")  # Debug print
+            
+            # Handle professor assignments
+            for type_code in ['CM', 'TD', 'TP']:
+                professor_name = request.POST.get(f'{type_code.lower()}_professor')
+                if professor_name:
+                    print(f"Creating {type_code} professor: {professor_name}")  # Debug print
+                    professor, _ = Professor.objects.get_or_create(name=professor_name)
+                    CourseAssignment.objects.create(
+                        course=course,
+                        professor=professor,
+                        type=type_code
+                    )
+            
+            # Handle room assignments
+            cm_room = request.POST.get('cm_room')
+            tp_room = request.POST.get('tp_room')
+            
+            if cm_room:
+                print(f"Creating CM room: {cm_room}")  # Debug print
+                room, _ = Room.objects.get_or_create(number=cm_room)
+                assignments = CourseAssignment.objects.filter(course=course, type='CM')
+                if assignments.exists():
+                    assignments.update(room=room)
+            
+            if tp_room:
+                print(f"Creating TP room: {tp_room}")  # Debug print
+                room, _ = Room.objects.get_or_create(number=tp_room)
+                assignments = CourseAssignment.objects.filter(course=course, type='TP')
+                if assignments.exists():
+                    assignments.update(room=room)
+            
+            # Get professor names for response
+            cm_professor = CourseAssignment.objects.filter(course=course, type='CM').first()
+            td_professor = CourseAssignment.objects.filter(course=course, type='TD').first()
+            tp_professor = CourseAssignment.objects.filter(course=course, type='TP').first()
+            
+            # Return success response with course data
+            response_data = {
+                'status': 'success',
+                'course': {
+                    'code': course.code,
+                    'title': course.title,
+                    'credits': course.credits,
+                    'cm_hours': course.cm_hours,
+                    'td_hours': course.td_hours,
+                    'tp_hours': course.tp_hours,
+                    'vht': course.vht if hasattr(course, 'vht') else '',
+                    'cm_professor': cm_professor.professor.name if cm_professor else '',
+                    'td_professor': td_professor.professor.name if td_professor else '',
+                    'tp_professor': tp_professor.professor.name if tp_professor else '',
+                    'cm_room': cm_room or '',
+                    'tp_room': tp_room or '',
+                }
+            }
+            
+            print("Sending response:", response_data)  # Debug print
+            return JsonResponse(response_data)
+            
+        except ValueError as e:
+            return JsonResponse({
+                'status': 'error',
+                'error': f'Invalid value: {str(e)}'
+            }, status=400)
+        except Exception as e:
+            print(f"Error in add_course: {str(e)}")  # Debug print
+            return JsonResponse({
+                'status': 'error',
+                'error': str(e)
+            }, status=500)
+    
+    return JsonResponse({
+        'status': 'error',
+        'error': 'Invalid request method'
+    }, status=405)

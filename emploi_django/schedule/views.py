@@ -235,56 +235,104 @@ def save_plan(request):
 def update_course(request):
     """Update a course field"""
     if request.method == 'POST':
-        course_id = request.POST.get('course_id')
-        field = request.POST.get('field')
-        value = request.POST.get('value')
-        
         try:
-            course = Course.objects.get(id=course_id)
-            original_value = getattr(course, field)
+            data = json.loads(request.body) if request.body else request.POST
+            code = data.get('code')
+            field = data.get('field')
+            value = data.get('value')
             
-            # Update the field
-            setattr(course, field, value)
-            course.save()
+            print(f"Updating course {code}, field {field} to {value}")  # Debug print
             
-            return JsonResponse({
-                'success': True,
-                'message': 'Course updated successfully'
-            })
-        except Course.DoesNotExist:
+            if not all([code, field, value]):
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Missing required fields: code, field, value'
+                })
+            
+            try:
+                course = Course.objects.get(code=code)
+                original_value = getattr(course, field)
+                
+                # Handle numeric fields
+                if field in ['credits', 'cm_hours', 'td_hours', 'tp_hours']:
+                    value = int(value)
+                
+                # Update the field
+                setattr(course, field, value)
+                course.save()
+                
+                print(f"Successfully updated course {code}")  # Debug print
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Course updated successfully'
+                })
+            except Course.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Course {code} not found'
+                })
+            except ValueError:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Invalid value for field {field}',
+                    'original_value': original_value
+                })
+            except Exception as e:
+                print(f"Error updating course: {str(e)}")  # Debug print
+                return JsonResponse({
+                    'success': False,
+                    'message': str(e),
+                    'original_value': original_value
+                })
+        except json.JSONDecodeError:
             return JsonResponse({
                 'success': False,
-                'message': 'Course not found',
-                'original_value': original_value
-            })
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'message': str(e),
-                'original_value': original_value
+                'message': 'Invalid JSON data'
             })
 
 @csrf_exempt
 def delete_course(request):
     """Delete a course"""
     if request.method == 'POST':
-        course_id = request.POST.get('course_id')
         try:
-            course = Course.objects.get(id=course_id)
-            course.delete()
-            return JsonResponse({
-                'success': True,
-                'message': 'Course deleted successfully'
-            })
-        except Course.DoesNotExist:
+            data = json.loads(request.body) if request.body else request.POST
+            code = data.get('code')
+            
+            print(f"Attempting to delete course {code}")  # Debug print
+            
+            if not code:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Course code is required'
+                })
+            
+            try:
+                course = Course.objects.get(code=code)
+                course_name = str(course)  # Save course info before deletion
+                course.delete()
+                
+                print(f"Successfully deleted course {code}")  # Debug print
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': f'Course {course_name} deleted successfully'
+                })
+            except Course.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Course {code} not found'
+                })
+            except Exception as e:
+                print(f"Error deleting course: {str(e)}")  # Debug print
+                return JsonResponse({
+                    'success': False,
+                    'message': str(e)
+                })
+        except json.JSONDecodeError:
             return JsonResponse({
                 'success': False,
-                'message': 'Course not found'
-            })
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'message': str(e)
+                'message': 'Invalid JSON data'
             })
 
 def debug_course_values(request):

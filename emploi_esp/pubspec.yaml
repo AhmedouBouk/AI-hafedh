@@ -1,5 +1,5 @@
-name: emploi_esp
-description: "A new Flutter project."
+name: esp
+description: ESP Schedule and Progress Tracking App
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -50,18 +50,29 @@ dependencies:
   flutter_neumorphic: ^3.2.0
   glassmorphism: 3.0.0
   awesome_notifications:
+  flutter_native_splash: ^2.3.6
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.3.6
+  flutter_lints: ^3.0.0
 
-  # The "flutter_lints" package below contains a set of recommended lints to
-  # encourage good coding practices. The lint set provided by the package is
-  # activated in the `analysis_options.yaml` file located at the root of your
-  # package. See that file for information about deactivating specific lint
-  # rules and activating additional ones.
-  flutter_lints: ^4.0.0
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/logo_esp.jpg"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/logo_esp.jpg"
+
+flutter_native_splash:
+  color: "#FFFFFF"
+  image: "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png"
+  android_12:
+    image: "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png"
+    color: "#FFFFFF"
+  web: false
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -75,9 +86,8 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  assets:
+    - assets/logo_esp.jpg
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -1,223 +1,142 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
-import 'package:ionicons/ionicons.dart';
-import 'package:awesome_notifications/awesome_notifications.dart';
-import 'package:workmanager/workmanager.dart';
-import './screens/emploi_page.dart';
+import 'screens/emploi_page.dart';
 import 'screens/bilan_page.dart';
 
-void callbackDispatcher() {
-  Workmanager().executeTask((task, inputData) async {
-    await Future.delayed(Duration(seconds: 2));
-    return true;
-  });
-}
-
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Initialize notifications
-  AwesomeNotifications().initialize(
-    null,
-    [
-      NotificationChannel(
-        channelKey: 'basic_channel',
-        channelName: 'Basic Notifications',
-        channelDescription: 'Notification channel for basic tests',
-        defaultColor: Colors.teal,
-        ledColor: Colors.white,
-        importance: NotificationImportance.High,
-      ),
-    ],
-  );
-
-  // Initialize background tasks
-  Workmanager().initialize(callbackDispatcher);
-  Workmanager().registerPeriodicTask(
-    "updateCheck",
-    "updateCheckTask",
-    frequency: Duration(minutes: 1),
-  );
-
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+  ));
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'ESP Schedule',
       debugShowCheckedModeBanner: false,
-      title: 'Modern Schedule',
-      theme: _buildTheme(),
-      home: const HomeScreen(),
-    );
-  }
-
-  ThemeData _buildTheme() {
-    final baseTheme = ThemeData(
-      brightness: Brightness.light,
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xFF2962FF),
-        brightness: Brightness.light,
-      ),
-    );
-
-    return baseTheme.copyWith(
-      textTheme: GoogleFonts.interTextTheme(baseTheme.textTheme),
-      appBarTheme: AppBarTheme(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        titleTextStyle: GoogleFonts.inter(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          color: Colors.black87,
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF2196F3),
+          brightness: Brightness.light,
+        ),
+        textTheme: GoogleFonts.poppinsTextTheme(),
+        appBarTheme: AppBarTheme(
+          elevation: 0,
+          centerTitle: true,
+          titleTextStyle: GoogleFonts.poppins(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        cardTheme: CardTheme(
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
         ),
       ),
-      cardTheme: CardTheme(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: Colors.grey.shade200),
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF2196F3),
+          brightness: Brightness.dark,
+        ),
+        textTheme: GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
+        appBarTheme: AppBarTheme(
+          elevation: 0,
+          centerTitle: true,
+          titleTextStyle: GoogleFonts.poppins(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        cardTheme: CardTheme(
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
         ),
       ),
+      home: const MainScreen(),
     );
   }
 }
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class MainScreen extends StatefulWidget {
+  const MainScreen({Key? key}) : super(key: key);
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<MainScreen> createState() => _MainScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen>
-    with SingleTickerProviderStateMixin {
+class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
-  late AnimationController _animationController;
-  int _previousIndex = 0;
 
-  final List<Widget> _pages = [
-    EmploiPage(),
-    BilanPage(),
+  final _pages = [
+    const EmploiPage(),
+    const BilanPage(),
   ];
-
-  @override
-  void initState() {
-    super.initState();
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 500),
-      vsync: this,
-    );
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
-  }
-
-  double _getSlideDirection() {
-    if (_currentIndex > _previousIndex) {
-      return 0.1;
-    } else if (_currentIndex < _previousIndex) {
-      return -0.1;
-    }
-    return 0.0;
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topRight,
-                end: Alignment.bottomLeft,
-                colors: [
-                  Theme.of(context).colorScheme.primary.withOpacity(0.05),
-                  Theme.of(context).colorScheme.surface,
-                ],
-              ),
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        child: _pages[_currentIndex],
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, -5),
             ),
-          ),
-          _pages[_currentIndex]
-              .animate(controller: _animationController)
-              .fadeIn(duration: 300.ms)
-              .slideX(
-                begin: _getSlideDirection(),
-                duration: 300.ms,
-                curve: Curves.easeOutCubic,
-              ),
-        ],
+          ],
+        ),
+        child: SalomonBottomBar(
+          currentIndex: _currentIndex,
+          onTap: (i) => setState(() => _currentIndex = i),
+          items: [
+            SalomonBottomBarItem(
+              icon: const Icon(Icons.calendar_today),
+              title: const Text('Emploi'),
+              selectedColor: Theme.of(context).colorScheme.primary,
+            ),
+            SalomonBottomBarItem(
+              icon: const Icon(Icons.bar_chart),
+              title: const Text('Bilan'),
+              selectedColor: Theme.of(context).colorScheme.primary,
+            ),
+          ],
+        ),
       ),
-      bottomNavigationBar: _buildBottomNavigation(),
-    );
-  }
-
-  Widget _buildBottomNavigation() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: SalomonBottomBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _previousIndex = _currentIndex;
-            _currentIndex = index;
-            _animationController.forward(from: 0);
-          });
-        },
-        items: [
-          _buildNavItem(
-            icon: Ionicons.calendar_outline,
-            activeIcon: Ionicons.calendar,
-            label: 'Emploi',
-            color: const Color(0xFF2962FF),
-          ),
-          _buildNavItem(
-            icon: Ionicons.stats_chart_outline,
-            activeIcon: Ionicons.stats_chart,
-            label: 'Bilan',
-            color: const Color(0xFFFF6D00),
-          ),
-        ],
-      ),
-    );
-  }
-
-  SalomonBottomBarItem _buildNavItem({
-    required IconData icon,
-    required IconData activeIcon,
-    required String label,
-    required Color color,
-  }) {
-    return SalomonBottomBarItem(
-      icon: Icon(icon),
-      activeIcon: Icon(activeIcon),
-      title: Text(
-        label,
-        style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-      ),
-      selectedColor: color,
-      unselectedColor: Colors.grey[600],
     );
   }
 }

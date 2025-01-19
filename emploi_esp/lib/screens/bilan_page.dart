@@ -87,7 +87,7 @@ class _BilanPageState extends State<BilanPage> with SingleTickerProviderStateMix
 
   Widget _buildAppBar() {
     return SliverAppBar(
-      expandedHeight: 120.0,
+      expandedHeight: 80.0,
       floating: true,
       pinned: true,
       stretch: true,
@@ -95,8 +95,9 @@ class _BilanPageState extends State<BilanPage> with SingleTickerProviderStateMix
         title: Text(
           'Progression des Cours',
           style: GoogleFonts.poppins(
-            fontSize: 20,
+            fontSize: 14,
             fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
         ),
         background: Container(
@@ -105,8 +106,8 @@ class _BilanPageState extends State<BilanPage> with SingleTickerProviderStateMix
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Theme.of(context).primaryColor,
-                Theme.of(context).primaryColor.withOpacity(0.7),
+                Theme.of(context).colorScheme.primary,
+                Theme.of(context).colorScheme.primary.withOpacity(0.7),
               ],
             ),
           ),

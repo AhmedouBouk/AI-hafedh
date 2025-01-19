@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/schedule_model.dart';
 import '../services/api_service.dart';
+import '../config/api_config.dart';
 import '../widgets/common/refresh_indicator.dart';
 import '../widgets/common/notification_handler.dart';
 
@@ -17,6 +18,7 @@ class _EmploiPageState extends State<EmploiPage>
   late TabController _tabController;
   bool _isLoading = true;
   String? _error;
+  int _currentWeek = 1;
 
   final ApiService _apiService = ApiService();
   ScheduleMetadata? _metadata;
@@ -36,26 +38,41 @@ class _EmploiPageState extends State<EmploiPage>
   }
 
   Future<void> _loadData() async {
+    if (!mounted) return;
+
     try {
       setState(() {
         _isLoading = true;
         _error = null;
       });
 
-      // Load metadata and sessions in parallel
-      final results = await Future.wait([
-        _apiService.getScheduleMetadata(),
-        _apiService.getScheduleSessions(),
-      ]);
+      if (ApiConfig.debugMode) {
+        print('Loading data for week $_currentWeek');
+      }
+
+      // Load sessions for the current week
+      final sessions = await _apiService.getScheduleSessions(_currentWeek);
+
+      if (ApiConfig.debugMode) {
+        print('Loaded ${sessions.length} sessions');
+        print('Sessions by day:');
+        final days = ['LUN', 'MAR', 'MER', 'JEU', 'VEN'];
+        for (final day in days) {
+          final daySessions = sessions.where((s) => s.day == day).toList();
+          print('$day: ${daySessions.length} sessions');
+        }
+      }
 
       if (mounted) {
         setState(() {
-          _metadata = results[0] as ScheduleMetadata;
-          _sessions = results[1] as List<ScheduleSession>;
+          _sessions = sessions;
           _isLoading = false;
         });
       }
     } catch (e) {
+      if (ApiConfig.debugMode) {
+        print('Error loading data: $e');
+      }
       if (mounted) {
         setState(() {
           _error = e.toString();
@@ -66,9 +83,22 @@ class _EmploiPageState extends State<EmploiPage>
   }
 
   List<ScheduleSession> _getSessionsForDay(String day) {
-    if (_sessions == null) return [];
-    return _sessions!.where((session) => session.day == day).toList()
+    if (_sessions == null) {
+      if (ApiConfig.debugMode) {
+        print('No sessions available for $day');
+      }
+      return [];
+    }
+
+    final daySessions = _sessions!.where((session) => session.day == day).toList()
       ..sort((a, b) => a.timeSlot.compareTo(b.timeSlot));
+
+    if (ApiConfig.debugMode) {
+      print('Found ${daySessions.length} sessions for $day');
+      daySessions.forEach((s) => print('${s.code} at slot ${s.timeSlot}'));
+    }
+
+    return daySessions;
   }
 
   @override
@@ -103,42 +133,104 @@ class _EmploiPageState extends State<EmploiPage>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              'Error loading schedule',
-              style: GoogleFonts.inter(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Colors.red,
-              ),
-            ),
-            SizedBox(height: 8),
-            Text(
-              _error!,
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
-            ),
-            SizedBox(height: 16),
+            Text('Error: $_error'),
             ElevatedButton(
               onPressed: _loadData,
-              child: Text('Retry'),
+              child: const Text('Retry'),
             ),
           ],
         ),
       );
     }
 
-    return NestedScrollView(
-      headerSliverBuilder: (context, innerBoxIsScrolled) => [
-        _buildSliverAppBar(),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  'Emploi du temps - Semaine $_currentWeek',
+                  style: Theme.of(context).textTheme.titleLarge,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_ios, size: 20),
+                    padding: const EdgeInsets.all(8),
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    onPressed: () {
+                      if (_currentWeek > 1) {
+                        setState(() {
+                          _currentWeek--;
+                          _loadData();
+                        });
+                      }
+                    },
+                  ),
+                  DropdownButton<int>(
+                    value: _currentWeek,
+                    isDense: true,
+                    items: List.generate(
+                      15,
+                      (index) => DropdownMenuItem(
+                        value: index + 1,
+                        child: Text('S${index + 1}'),
+                      ),
+                    ),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _currentWeek = value;
+                          _loadData();
+                        });
+                      }
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.arrow_forward_ios, size: 20),
+                    padding: const EdgeInsets.all(8),
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    onPressed: () {
+                      if (_currentWeek < 15) {
+                        setState(() {
+                          _currentWeek++;
+                          _loadData();
+                        });
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: NestedScrollView(
+            headerSliverBuilder: (context, innerBoxIsScrolled) => [
+              _buildSliverAppBar(),
+            ],
+            body: Column(
+              children: [
+                _buildTabBar(),
+                Expanded(child: _buildTabBarView()),
+              ],
+            ),
+          ),
+        ),
       ],
-      body: Column(
-        children: [
-          _buildTabBar(),
-          Expanded(child: _buildTabBarView()),
-        ],
-      ),
     );
   }
 
@@ -309,30 +401,17 @@ class _EmploiPageState extends State<EmploiPage>
   }
 
   Widget _buildTabBarView() {
+    final days = ['LUN', 'MAR', 'MER', 'JEU', 'VEN'];
+    
     return TabBarView(
       controller: _tabController,
-      children: [
-        _DaySchedule(
-          day: 'Lundi',
-          sessions: _getSessionsForDay('Lundi'),
-        ),
-        _DaySchedule(
-          day: 'Mardi',
-          sessions: _getSessionsForDay('Mardi'),
-        ),
-        _DaySchedule(
-          day: 'Mercredi',
-          sessions: _getSessionsForDay('Mercredi'),
-        ),
-        _DaySchedule(
-          day: 'Jeudi',
-          sessions: _getSessionsForDay('Jeudi'),
-        ),
-        _DaySchedule(
-          day: 'Vendredi',
-          sessions: _getSessionsForDay('Vendredi'),
-        ),
-      ],
+      children: days.map((day) {
+        final sessions = _getSessionsForDay(day);
+        if (ApiConfig.debugMode) {
+          print('Building tab for $day with ${sessions.length} sessions');
+        }
+        return _DaySchedule(day: day, sessions: sessions);
+      }).toList(),
     );
   }
 
@@ -352,30 +431,54 @@ class _DaySchedule extends StatelessWidget {
     required this.sessions,
   });
 
+  String _getTimeSlot(int slot) {
+    switch (slot) {
+      case 1:
+        return '8:30 - 10:00';
+      case 2:
+        return '10:15 - 11:45';
+      case 3:
+        return '12:00 - 13:30';
+      case 4:
+        return '13:45 - 15:15';
+      case 5:
+        return '15:30 - 17:00';
+      case 6:
+        return '17:15 - 18:45';
+      default:
+        return 'Unknown';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    print('Building _DaySchedule for day: $day with ${sessions.length} sessions');
     if (sessions.isEmpty) {
-      return Center(
-        child: Text(
-          'No sessions scheduled',
-          style: GoogleFonts.inter(
-            fontSize: 16,
-            color: Colors.grey[600],
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text(
+            'No sessions scheduled',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey,
+            ),
           ),
         ),
       );
     }
 
     return ListView.builder(
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       itemCount: sessions.length,
       itemBuilder: (context, index) {
         final session = sessions[index];
+        print('Building session for $day: ${session.code} at time slot ${session.timeSlot}');
         final timeSlot = _getTimeSlot(session.timeSlot);
 
         return Card(
           elevation: 0,
-          margin: EdgeInsets.only(bottom: 12),
+          margin: const EdgeInsets.only(bottom: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(color: Colors.grey.shade200),
@@ -393,7 +496,7 @@ class _DaySchedule extends StatelessWidget {
 
   Widget _buildTimeHeader(String timeSlot, BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: _EmploiPageState.headerColor,
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -401,7 +504,7 @@ class _DaySchedule extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            padding: EdgeInsets.all(8),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Colors.blue.shade50,
               borderRadius: BorderRadius.circular(8),
@@ -412,7 +515,7 @@ class _DaySchedule extends StatelessWidget {
               color: _EmploiPageState.accentColor,
             ),
           ),
-          SizedBox(width: 12),
+          const SizedBox(width: 12),
           Text(
             timeSlot,
             style: GoogleFonts.inter(
@@ -428,15 +531,17 @@ class _DaySchedule extends StatelessWidget {
 
   Widget _buildSessionContent(ScheduleSession session, BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              if (session.code.isNotEmpty) ...[
+              if (session.code.isNotEmpty)
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: _EmploiPageState.accentColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
@@ -450,10 +555,8 @@ class _DaySchedule extends StatelessWidget {
                     ),
                   ),
                 ),
-                SizedBox(width: 12),
-              ],
               Container(
-                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.grey[100],
                   borderRadius: BorderRadius.circular(8),
@@ -468,7 +571,7 @@ class _DaySchedule extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           Text(
             session.name,
             style: GoogleFonts.inter(
@@ -476,71 +579,66 @@ class _DaySchedule extends StatelessWidget {
               fontWeight: FontWeight.w500,
               color: Colors.black87,
             ),
+            overflow: TextOverflow.ellipsis,
           ),
-          SizedBox(height: 12),
-          Row(
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 16,
+            runSpacing: 8,
             children: [
-              if (session.room.isNotEmpty) ...[
-                Container(
-                  padding: EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Icon(Icons.room_outlined,
-                      size: 16, color: Colors.grey[700]),
+              if (session.room.isNotEmpty)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Icon(Icons.room_outlined,
+                          size: 16, color: Colors.grey[700]),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      session.room,
+                      style: GoogleFonts.inter(
+                        color: Colors.grey[700],
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(width: 8),
-                Text(
-                  session.room,
-                  style: GoogleFonts.inter(
-                    color: Colors.grey[700],
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
+              if (session.professor.isNotEmpty)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Icon(Icons.person_outline,
+                          size: 16, color: Colors.grey[700]),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      session.professor,
+                      style: GoogleFonts.inter(
+                        color: Colors.grey[700],
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(width: 16),
-              ],
-              if (session.professor.isNotEmpty) ...[
-                Container(
-                  padding: EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Icon(Icons.person_outline_rounded,
-                      size: 16, color: Colors.grey[700]),
-                ),
-                SizedBox(width: 8),
-                Text(
-                  session.professor,
-                  style: GoogleFonts.inter(
-                    color: Colors.grey[700],
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
             ],
           ),
         ],
       ),
     );
-  }
-
-  String _getTimeSlot(int slot) {
-    switch (slot) {
-      case 1:
-        return '08:00 - 09:30';
-      case 2:
-        return '09:45 - 11:15';
-      case 3:
-        return '11:30 - 13:00';
-      case 4:
-        return '15:10 - 16:40';
-      default:
-        return '';
-    }
   }
 }
 

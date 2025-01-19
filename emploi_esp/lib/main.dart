@@ -6,8 +6,6 @@ import 'package:ionicons/ionicons.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:workmanager/workmanager.dart';
 import './screens/emploi_page.dart';
-import 'bdd_page.dart';
-import 'plan_page.dart';
 import 'bilan_page.dart';
 
 void callbackDispatcher() {
@@ -106,8 +104,6 @@ class _HomeScreenState extends State<HomeScreen>
 
   final List<Widget> _pages = [
     EmploiPage(),
-    BDDPage(),
-    PlanPage(),
     BilanPage(),
   ];
 
@@ -195,18 +191,6 @@ class _HomeScreenState extends State<HomeScreen>
             activeIcon: Ionicons.calendar,
             label: 'Emploi',
             color: const Color(0xFF2962FF),
-          ),
-          _buildNavItem(
-            icon: Ionicons.server_outline,
-            activeIcon: Ionicons.server,
-            label: 'BDD',
-            color: const Color(0xFF00B0FF),
-          ),
-          _buildNavItem(
-            icon: Ionicons.map_outline,
-            activeIcon: Ionicons.map,
-            label: 'Plan',
-            color: const Color(0xFF00C853),
           ),
           _buildNavItem(
             icon: Ionicons.stats_chart_outline,

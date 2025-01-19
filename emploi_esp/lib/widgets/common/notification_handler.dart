@@ -32,20 +32,23 @@ class _NotificationHandlerState extends State<NotificationHandler>
 
   void _setupNotificationCheck() {
     _notificationTimer = Timer.periodic(
-      Duration(minutes: 1), // Check for updates every minute
+      const Duration(minutes: 15), // Check for updates every 15 minutes instead of every minute
       (_) => _checkForUpdates(),
     );
-    _checkForUpdates();
+    // Initial check after a short delay
+    Future.delayed(const Duration(seconds: 5), _checkForUpdates);
   }
 
   Future<void> _checkForUpdates() async {
+    if (!mounted) return;
+    
     try {
       final hasUpdates = await _apiService.checkForUpdates();
 
       if (hasUpdates && mounted) {
         final now = DateTime.now();
         if (_lastNotificationTime == null ||
-            now.difference(_lastNotificationTime!) > const Duration(minutes: 5)) {
+            now.difference(_lastNotificationTime!) > const Duration(minutes: 30)) {
           _showUpdateNotification();
           _lastNotificationTime = now;
           widget.onUpdate(); // Refresh the schedule data

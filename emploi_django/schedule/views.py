@@ -164,7 +164,7 @@ def get_plan(request, week):
 
 @csrf_exempt
 def save_plan(request):
-    """Save schedule plan"""
+    """Save schedule plan and update progress"""
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
@@ -174,11 +174,15 @@ def save_plan(request):
             
             # Group slots by week for batch processing
             slots_by_week = {}
+            affected_courses = set()  # Track which courses are affected
+            
             for item in plan:
                 week = item['week']
                 if week not in slots_by_week:
                     slots_by_week[week] = []
                 slots_by_week[week].append(item)
+                # Track affected course
+                affected_courses.add(item['course_code'])
             
             # Process each week's slots
             for week, items in slots_by_week.items():
@@ -203,33 +207,27 @@ def save_plan(request):
                             period=item['period'],
                             course_assignment=assignment
                         )
-                    except (Course.DoesNotExist, CourseAssignment.DoesNotExist) as e:
-                        print(f"Error finding course or assignment: {e}")
-                        return JsonResponse({
-                            'error': f'Could not find course or assignment: {str(e)}. Course code: {item["course_code"]}, Type: {item["type"]}'
-                        }, status=400)
                     except Exception as e:
-                        print(f"Error saving time slot: {e}")
-                        return JsonResponse({
-                            'error': f'Error saving time slot: {str(e)}. Data: {item}'
-                        }, status=500)
+                        print(f"Error processing item: {str(e)}")
+                        return JsonResponse({'error': str(e)}, status=500)
+            
+            # Update progress for all affected courses
+            for course_code in affected_courses:
+                try:
+                    course = Course.objects.get(code=course_code)
+                    course.update_completed_hours()
+                except Course.DoesNotExist:
+                    print(f"Course {course_code} not found")
+                except Exception as e:
+                    print(f"Error updating progress for {course_code}: {str(e)}")
             
             return JsonResponse({'status': 'success'})
-        except KeyError as e:
-            print(f"Missing required field: {e}")
-            return JsonResponse({
-                'error': f'Missing required field: {str(e)}'
-            }, status=400)
-        except json.JSONDecodeError as e:
-            print(f"Invalid JSON data: {e}")
-            return JsonResponse({
-                'error': 'Invalid JSON data'
-            }, status=400)
+            
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON data'}, status=400)
         except Exception as e:
-            print(f"Unexpected error: {e}")
-            return JsonResponse({
-                'error': f'Unexpected error: {str(e)}'
-            }, status=500)
+            print(f"Error saving plan: {str(e)}")
+            return JsonResponse({'error': str(e)}, status=500)
     
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
@@ -299,42 +297,86 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
 from .models import Course
-
-def bilan_view(request):
-    """View for displaying the course progress"""
-    courses = Course.objects.all()
-    # Calculer l'avancement total pour chaque cours
-    for course in courses:
-        course.total_progress_value = course.total_progress()  # Ajouter l'avancement total au cours
-    context = {
-        'courses': courses,
-        'total_progress': [course.total_progress_value for course in courses]
-    }
-    return render(request, 'schedule/bilan.html', context)
 import logging
 
 logger = logging.getLogger(__name__)
 
+def bilan_view(request):
+    """View for displaying the course progress"""
+    try:
+        courses = Course.objects.all().order_by('code')
+        for course in courses:
+            course.total_progress_value = course.total_progress()
+        context = {
+            'courses': courses,
+            'total_progress': [course.total_progress_value for course in courses]
+        }
+        return render(request, 'schedule/Bilan.html', context)
+    except Exception as e:
+        logger.error(f"Error in bilan_view: {str(e)}")
+        return render(request, 'schedule/Bilan.html', {
+            'courses': [],
+            'error_message': "Une erreur s'est produite lors du chargement des données."
+        })
+
 @csrf_exempt
 def update_bilan(request):
-    if request.method == 'POST':
-        print("Update Bilan called!")  # Debug: Check if view is called
+    """Update course completion values"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    
+    try:
         data = json.loads(request.body)
         course_code = data.get('course_code')
         field = data.get('field')
         value = data.get('value')
-        # Rest of the code...
 
+        # Validate required fields
+        if not all([course_code, field, value]):
+            return JsonResponse({'error': 'Missing required fields'}, status=400)
+
+        # Validate field name
+        if field not in ['cm_completed', 'td_completed', 'tp_completed']:
+            return JsonResponse({'error': 'Invalid field name'}, status=400)
+
+        # Validate value is a positive integer
         try:
-            course = Course.objects.get(code=course_code)
-            if field in ['cm_completed', 'td_completed', 'tp_completed']:
-                setattr(course, field, int(value))  # Ensure value is an integer
-                course.save()
-                return JsonResponse({'status': 'success'})
-            else:
-                return JsonResponse({'error': 'Invalid field'}, status=400)
-        except Course.DoesNotExist:
-            return JsonResponse({'error': 'Course not found'}, status=404)
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-    return JsonResponse({'error': 'Invalid request method'}, status=405)
+            value = int(value)
+            if value < 0:
+                raise ValueError("Value must be positive")
+        except ValueError as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+        # Get and update course
+        course = Course.objects.get(code=course_code)
+        
+        # Validate against planned hours
+        planned_hours = getattr(course, field.replace('completed', 'hours'))
+        if value > planned_hours:
+            return JsonResponse({
+                'error': f'Les heures réalisées ({value}) ne peuvent pas dépasser les heures planifiées ({planned_hours})'
+            }, status=400)
+
+        # Update the field
+        setattr(course, field, value)
+        course.save()
+
+        # Return updated progress values
+        response_data = {
+            'status': 'success',
+            'progress': {
+                'cm': course.progress_cm(),
+                'td': course.progress_td(),
+                'tp': course.progress_tp(),
+                'total': course.total_progress()
+            }
+        }
+        return JsonResponse(response_data)
+
+    except Course.DoesNotExist:
+        return JsonResponse({'error': 'Course not found'}, status=404)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+    except Exception as e:
+        logger.error(f"Error in update_bilan: {str(e)}")
+        return JsonResponse({'error': 'Server error'}, status=500)

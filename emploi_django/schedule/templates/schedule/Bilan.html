@@ -36,11 +36,24 @@
         text-align: center;
         padding: 10px;
     }
+
+    .alert {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1000;
+        display: none;
+    }
+
+    .invalid-input {
+        border: 1px solid red !important;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid">
+    <div id="alert" class="alert" role="alert"></div>
     <h2>Bilan des Cours</h2>
     <button class="btn btn-primary mb-3" onclick="location.reload()">Rafraîchir</button>
     <div class="table-responsive">
@@ -89,85 +102,135 @@
     </div>
 </div>
 {% endblock %}
+
 {% block extra_js %}
 <script>
     $(document).ready(function() {
-        console.log("JavaScript loaded!"); // Debug: Check if JS is running
-    
+        // Get CSRF token
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrftoken = getCookie('csrftoken');
+
+        // Function to show alert
+        function showAlert(message, type) {
+            const alert = $('#alert');
+            alert.removeClass('alert-success alert-danger')
+                 .addClass(`alert-${type}`)
+                 .html(message)
+                 .fadeIn()
+                 .delay(3000)
+                 .fadeOut();
+        }
+
+        // Function to validate input
+        function validateInput(value) {
+            return /^\d+$/.test(value) && parseInt(value) >= 0;
+        }
+
         // Function to calculate progress
         function calculateProgress(completed, planned) {
-            return planned > 0 ? ((completed / planned) * 100).toFixed(2) : 0;
+            completed = parseFloat(completed) || 0;
+            planned = parseFloat(planned) || 0;
+            return planned > 0 ? ((completed / planned) * 100).toFixed(2) : '0.00';
         }
-    
+
         // Function to update progress percentages
         function updateProgress(cell) {
-            console.log("Updating progress..."); // Debug: Check if function is called
-    
             const row = cell.closest('tr');
-            const cmPlanned = parseFloat(row.find('td:nth-child(4)').text());
-            const cmCompleted = parseFloat(row.find('td:nth-child(5)').text());
-            const tdPlanned = parseFloat(row.find('td:nth-child(7)').text());
-            const tdCompleted = parseFloat(row.find('td:nth-child(8)').text());
-            const tpPlanned = parseFloat(row.find('td:nth-child(10)').text());
-            const tpCompleted = parseFloat(row.find('td:nth-child(11)').text());
-    
-            console.log("CM Planned:", cmPlanned, "CM Completed:", cmCompleted); // Debug: Check values
-            console.log("TD Planned:", tdPlanned, "TD Completed:", tdCompleted); // Debug: Check values
-            console.log("TP Planned:", tpPlanned, "TP Completed:", tpCompleted); // Debug: Check values
-    
-            // Update CM progress
-            const cmProgress = calculateProgress(cmCompleted, cmPlanned);
-            row.find('td:nth-child(6)').text(`${cmProgress}%`);
-    
-            // Update TD progress
-            const tdProgress = calculateProgress(tdCompleted, tdPlanned);
-            row.find('td:nth-child(9)').text(`${tdProgress}%`);
-    
-            // Update TP progress
-            const tpProgress = calculateProgress(tpCompleted, tpPlanned);
-            row.find('td:nth-child(12)').text(`${tpProgress}%`);
-    
-            // Update Total progress
+            
+            // Get planned hours
+            const cmPlanned = parseFloat(row.find('td:nth-child(4)').text()) || 0;
+            const tdPlanned = parseFloat(row.find('td:nth-child(7)').text()) || 0;
+            const tpPlanned = parseFloat(row.find('td:nth-child(10)').text()) || 0;
+            
+            // Get completed hours
+            const cmCompleted = parseFloat(row.find('td:nth-child(5)').text()) || 0;
+            const tdCompleted = parseFloat(row.find('td:nth-child(8)').text()) || 0;
+            const tpCompleted = parseFloat(row.find('td:nth-child(11)').text()) || 0;
+
+            console.log('Planned hours:', {cmPlanned, tdPlanned, tpPlanned});
+            console.log('Completed hours:', {cmCompleted, tdCompleted, tpCompleted});
+
+            // Update individual progress cells
+            row.find('td:nth-child(6)').text(`${calculateProgress(cmCompleted, cmPlanned)}%`);
+            row.find('td:nth-child(9)').text(`${calculateProgress(tdCompleted, tdPlanned)}%`);
+            row.find('td:nth-child(12)').text(`${calculateProgress(tpCompleted, tpPlanned)}%`);
+
+            // Update total cells
             const totalPlanned = cmPlanned + tdPlanned + tpPlanned;
             const totalCompleted = cmCompleted + tdCompleted + tpCompleted;
-            const totalProgress = calculateProgress(totalCompleted, totalPlanned);
-            row.find('td:nth-child(15)').text(`${totalProgress}%`);
-    
-            console.log("Progress updated!"); // Debug: Check if progress is updated
+            row.find('td:nth-child(13)').text(totalPlanned);
+            row.find('td:nth-child(14)').text(totalCompleted);
+            row.find('td:nth-child(15)').text(`${calculateProgress(totalCompleted, totalPlanned)}%`);
+
+            console.log('Total progress:', calculateProgress(totalCompleted, totalPlanned));
         }
-    
+
         // Make cells editable on click
         $('.editable').on('click', function() {
-            console.log("Cell clicked!"); // Debug: Check if cell is clicked
             const cell = $(this);
-            const value = cell.text().trim();
-            const input = $('<input type="text">').val(value);
-            cell.html(input).addClass('editing');
-            input.focus();
+            if (!cell.hasClass('editing')) {
+                const value = cell.text().trim();
+                cell.data('original-value', value);  // Store original value
+                const input = $('<input type="text" class="form-control">').val(value);
+                cell.html(input).addClass('editing');
+                input.focus();
+            }
         });
-    
-        // Handle input blur
-        $(document).on('blur', '.editing input', function() {
-            console.log("Input blurred!"); // Debug: Check if input is blurred
-            const cell = $(this).parent();
-            const newValue = $(this).val();
+
+        // Handle input blur and enter key
+        $(document).on('blur keypress', '.editing input', function(e) {
+            if (e.type === 'keypress' && e.which !== 13) return;
+            
+            const input = $(this);
+            const cell = input.parent();
+            const newValue = input.val().trim();
+            const oldValue = cell.data('original-value') || cell.text().trim();
             const field = cell.data('field');
             const courseCode = cell.data('course-code');
-    
-            console.log("New Value:", newValue); // Debug: Check new value
-            console.log("Field:", field); // Debug: Check field
-            console.log("Course Code:", courseCode); // Debug: Check course code
-    
-            // Update the cell content
-            cell.html(newValue).removeClass('editing');
-    
-            // Update progress percentages
-            updateProgress(cell);
-    
-            // Send the update to the server
+
+            // Validate input
+            if (!validateInput(newValue)) {
+                input.addClass('invalid-input');
+                showAlert('Veuillez entrer un nombre entier positif', 'danger');
+                return;
+            }
+
+            // Get planned hours for validation
+            const row = cell.closest('tr');
+            let plannedHours = 0;
+            if (field === 'cm_completed') {
+                plannedHours = parseFloat(row.find('td:nth-child(4)').text());
+            } else if (field === 'td_completed') {
+                plannedHours = parseFloat(row.find('td:nth-child(7)').text());
+            } else if (field === 'tp_completed') {
+                plannedHours = parseFloat(row.find('td:nth-child(10)').text());
+            }
+
+            // Validate against planned hours
+            if (parseFloat(newValue) > plannedHours) {
+                input.addClass('invalid-input');
+                showAlert(`Les heures réalisées ne peuvent pas dépasser les heures planifiées (${plannedHours}h)`, 'danger');
+                return;
+            }
+
+            // Send update to server
             $.ajax({
-                url: '{% url "update_bilan" %}',  // Ensure this matches the name in urls.py
+                url: '{% url "update_bilan" %}',
                 method: 'POST',
+                headers: {'X-CSRFToken': csrftoken},
                 contentType: 'application/json',
                 data: JSON.stringify({
                     course_code: courseCode,
@@ -175,15 +238,28 @@
                     value: newValue
                 }),
                 success: function(response) {
-                    console.log("Server response:", response);
-                    if (response.status !== 'success') {
-                        alert('Failed to update');
-                    }
+                    cell.html(newValue).removeClass('editing');
+                    updateProgress(cell);
+                    showAlert('Mise à jour réussie', 'success');
                 },
                 error: function(xhr) {
-                    console.error("Error:", xhr.responseText);
-                    alert('Error: ' + xhr.responseText);
+                    cell.html(oldValue).removeClass('editing');
+                    showAlert('Erreur lors de la mise à jour: ' + (xhr.responseJSON?.error || 'Erreur inconnue'), 'danger');
                 }
             });
+        });
+
+        // Handle click outside editing cell
+        $(document).on('click', function(e) {
+            if (!$(e.target).closest('.editing').length && !$(e.target).hasClass('editable')) {
+                $('.editing input').blur();
+            }
+        });
+
+        // Initialize progress for all rows
+        $('.editable').each(function() {
+            updateProgress($(this));
+        });
+    });
 </script>
 {% endblock %}

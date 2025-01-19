@@ -6,31 +6,84 @@ class Course(models.Model):
     code = models.CharField(max_length=10, primary_key=True)  # e.g., IRT31
     title = models.CharField(max_length=100)
     credits = models.IntegerField()
-    cm_hours = models.IntegerField()  # Planned CM hours
-    td_hours = models.IntegerField()  # Planned TD hours
-    tp_hours = models.IntegerField()  # Planned TP hours
-    cm_completed = models.IntegerField(default=0)  # Completed CM hours
-    td_completed = models.IntegerField(default=0)  # Completed TD hours
-    tp_completed = models.IntegerField(default=0)  # Completed TP hours
-    exam_sn = models.FloatField(null=True, blank=True)  # Exam SN (manually entered)
-    exam_sr = models.FloatField(null=True, blank=True)  # Exam SR (manually entered)
+    cm_hours = models.IntegerField()  # Total planned CM hours
+    td_hours = models.IntegerField()  # Total planned TD hours
+    tp_hours = models.IntegerField()  # Total planned TP hours
+    cm_completed = models.IntegerField(default=0)  # Will be calculated from schedule
+    td_completed = models.IntegerField(default=0)  # Will be calculated from schedule
+    tp_completed = models.IntegerField(default=0)  # Will be calculated from schedule
+    exam_sn = models.FloatField(null=True, blank=True)
+    exam_sr = models.FloatField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.code} - {self.title}"
 
+    def update_completed_hours(self):
+        """Update completed hours based on scheduled sessions"""
+        # Get all assignments for this course
+        assignments = CourseAssignment.objects.filter(course=self)
+        
+        # Initialize counters
+        self.cm_completed = 0
+        self.td_completed = 0
+        self.tp_completed = 0
+        
+        # Count scheduled sessions for each type
+        for assignment in assignments:
+            # Get all time slots for this assignment
+            slots = TimeSlot.objects.filter(course_assignment=assignment)
+            
+            # Count slots by type
+            if assignment.type == 'CM':
+                self.cm_completed = slots.count() * 1.5  # Each slot is 1.5 hours
+            elif assignment.type == 'TD':
+                self.td_completed = slots.count() * 1.5
+            elif assignment.type == 'TP':
+                self.tp_completed = slots.count() * 1.5
+        
+        # Save the updated counts
+        self.save()
+
+    def get_planned_hours(self, type_code):
+        """Get planned hours from schedule for a specific type"""
+        assignments = CourseAssignment.objects.filter(course=self, type=type_code)
+        total_slots = 0
+        for assignment in assignments:
+            total_slots += TimeSlot.objects.filter(course_assignment=assignment).count()
+        return total_slots * 1.5  # Each slot is 1.5 hours
+
     def progress_cm(self):
-        return (self.cm_completed / self.cm_hours) * 100 if self.cm_hours > 0 else 0
+        """Calculate CM progress percentage"""
+        planned = self.get_planned_hours('CM')
+        if planned <= 0:
+            return 0.0
+        return round((self.cm_completed / planned) * 100, 2) if planned > 0 else 0.0
 
     def progress_td(self):
-        return (self.td_completed / self.td_hours) * 100 if self.td_hours > 0 else 0
+        """Calculate TD progress percentage"""
+        planned = self.get_planned_hours('TD')
+        if planned <= 0:
+            return 0.0
+        return round((self.td_completed / planned) * 100, 2) if planned > 0 else 0.0
 
     def progress_tp(self):
-        return (self.tp_completed / self.tp_hours) * 100 if self.tp_hours > 0 else 0
+        """Calculate TP progress percentage"""
+        planned = self.get_planned_hours('TP')
+        if planned <= 0:
+            return 0.0
+        return round((self.tp_completed / planned) * 100, 2) if planned > 0 else 0.0
 
     def total_progress(self):
-        total_planned = self.cm_hours + self.td_hours + self.tp_hours
+        """Calculate total progress percentage"""
+        total_planned = (
+            self.get_planned_hours('CM') +
+            self.get_planned_hours('TD') +
+            self.get_planned_hours('TP')
+        )
+        if total_planned <= 0:
+            return 0.0
         total_completed = self.cm_completed + self.td_completed + self.tp_completed
-        return (total_completed / total_planned) * 100 if total_planned > 0 else 0
+        return round((total_completed / total_planned) * 100, 2) if total_planned > 0 else 0.0
 
 class Professor(models.Model):
     name = models.CharField(max_length=100)

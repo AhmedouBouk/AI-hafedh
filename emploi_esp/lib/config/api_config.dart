@@ -6,6 +6,7 @@ class ApiConfig {
 
   // API Endpoints
   static const String scheduleEndpoint = '/api/schedule';
+  static const String bilanEndpoint = '/api/bilan/';
   
   // Debug mode
   static const bool debugMode = true;

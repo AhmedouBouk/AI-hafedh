@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/schedule_model.dart';
+import '../models/bilan_model.dart';
 import '../services/storage_service.dart';
 
 class ApiService {
@@ -145,6 +146,47 @@ class ApiService {
       'P6': 6,
     };
     return periodMap[period] ?? 1;
+  }
+
+  // Get bilan data for course progress
+  Future<BilanSemester> getBilanData() async {
+    try {
+      print('Fetching bilan data...');
+      final response = await _client.get(
+        Uri.parse('${ApiConfig.baseUrl}/api/courses/'),
+      );
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> coursesJson = json.decode(response.body);
+        print('Found ${coursesJson.length} courses');
+        
+        // Filter out invalid courses before processing
+        final validCourses = coursesJson.where((course) => 
+          course is Map<String, dynamic> && 
+          course['code']?.toString().trim().isNotEmpty == true
+        ).toList();
+        
+        // Process each valid course
+        final processedCourses = validCourses.map((course) {
+          print('Processing course: $course');
+          return course;
+        }).toList();
+
+        return BilanSemester.fromJson({'courses': processedCourses});
+      } else {
+        throw Exception('Failed to load bilan data: ${response.statusCode}');
+      }
+    } on FormatException catch (e) {
+      // Don't propagate format exceptions, just filter out invalid courses
+      print('Format error while processing courses: $e');
+      return BilanSemester(courses: [], averageProgress: 0.0);
+    } catch (e) {
+      print('Error in getBilanData: $e');
+      throw Exception('Failed to process bilan data: $e');
+    }
   }
 
   // Dispose the HTTP client

@@ -6,7 +6,7 @@ import 'package:ionicons/ionicons.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:workmanager/workmanager.dart';
 import './screens/emploi_page.dart';
-import 'bilan_page.dart';
+import 'screens/bilan_page.dart';
 
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {

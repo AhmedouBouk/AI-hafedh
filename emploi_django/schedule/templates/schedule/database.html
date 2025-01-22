@@ -1,101 +1,16 @@
 {% extends 'schedule/base.html' %}
 {% load static %}
 
-{% block content %}
-<div class="container-fluid">
-    <div class="table-responsive">
-        <table class="table table-bordered table-hover">
-            <thead class="sticky-top bg-light">
-                <tr>
-                    <th>Code</th>
-                    <th>Title</th>
-                    <th>Credits</th>
-                    <th>CM Hours</th>
-                    <th>TD Hours</th>
-                    <th>TP Hours</th>
-                    <th>VHT</th>
-                    <th>CM Professor</th>
-                    <th>TD Professor</th>
-                    <th>TP Professor</th>
-                    <th>CM Room</th>
-                    <th>TP Room</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody id="courseTableBody">
-                {% for course in courses %}
-                <tr data-course-id="{{ course.code }}">
-                    <td class="editable" data-field="code">{{ course.code }}</td>
-                    <td class="editable" data-field="title">{{ course.title }}</td>
-                    <td class="editable" data-field="credits">{{ course.credits }}</td>
-                    <td class="editable" data-field="cm_hours">{{ course.cm_hours }}</td>
-                    <td class="editable" data-field="td_hours">{{ course.td_hours }}</td>
-                    <td class="editable" data-field="tp_hours">{{ course.tp_hours }}</td>
-                    <td class="editable" data-field="vht">{{ course.vht|default:'' }}</td>
-                    <td class="editable" data-field="cm_professor">
-                        {% for assignment in course.courseassignment_set.all %}
-                            {% if assignment.type == 'CM' %}{{ assignment.professor.name }}{% endif %}
-                        {% endfor %}
-                    </td>
-                    <td class="editable" data-field="td_professor">
-                        {% for assignment in course.courseassignment_set.all %}
-                            {% if assignment.type == 'TD' %}{{ assignment.professor.name }}{% endif %}
-                        {% endfor %}
-                    </td>
-                    <td class="editable" data-field="tp_professor">
-                        {% for assignment in course.courseassignment_set.all %}
-                            {% if assignment.type == 'TP' %}{{ assignment.professor.name }}{% endif %}
-                        {% endfor %}
-                    </td>
-                    <td class="editable" data-field="cm_room">
-                        {% for assignment in course.courseassignment_set.all %}
-                            {% if assignment.type == 'CM' %}{{ assignment.room.number }}{% endif %}
-                        {% endfor %}
-                    </td>
-                    <td class="editable" data-field="tp_room">
-                        {% for assignment in course.courseassignment_set.all %}
-                            {% if assignment.type == 'TP' %}{{ assignment.room.number }}{% endif %}
-                        {% endfor %}
-                    </td>
-                    <td>
-                        <button class="btn btn-sm btn-primary edit-row">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="btn btn-sm btn-danger delete-row">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                        <button class="btn btn-sm btn-success save-row" style="display: none;">
-                            <i class="fas fa-save"></i>
-                        </button>
-                        <button class="btn btn-sm btn-secondary cancel-row" style="display: none;">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    <button id="addNewRow" class="btn btn-success mt-3">
-        <i class="fas fa-plus"></i> Add New Course
-    </button>
-</div>
-
+{% block extra_css %}
 <style>
     .table-responsive {
-        max-height: calc(100vh - 150px);
+        max-height: calc(100vh - 250px);
         overflow-y: auto;
     }
     
-    .sticky-top {
-        position: sticky;
-        top: 0;
-        z-index: 1;
+    .editable:hover {
         background-color: #f8f9fa;
-    }
-    
-    .editable {
-        padding: 8px !important;
+        cursor: pointer;
     }
     
     .editing {
@@ -104,287 +19,214 @@
     
     .editing input {
         width: 100%;
-        padding: 4px;
-        margin: 0;
-        border: 1px solid #007bff;
+        height: 100%;
+        border: none;
+        padding: 8px;
     }
     
-    .form-control {
-        padding: 0.25rem 0.5rem;
-        font-size: 0.875rem;
+    .add-course-form {
+        background-color: #f8f9fa;
+        padding: 20px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+    }
+
+    .sticky-top {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background-color: white;
     }
     
-    .new-course-row input {
-        width: 100%;
-        padding: 4px;
-        margin: 0;
-    }
-    
-    .new-course-row td {
-        padding: 4px !important;
+    #code-error {
+        display: none;
+        color: #dc3545;
+        font-size: 0.875em;
     }
 </style>
+{% endblock %}
 
+{% block content %}
+<div class="container-fluid p-4">
+    <h2 class="mb-4">Base de données des cours - {{ department.name }} S{{ semester.number }}</h2>
+    
+    <!-- Formulaire d'ajout -->
+    <div class="add-course-form">
+        <h4>Ajouter un nouveau cours</h4>
+        <form id="addCourseForm" method="POST" action="{% url 'add_course' dept_id=department.id semester_id=semester.id %}" class="row g-3">
+            {% csrf_token %}
+            
+            <div class="col-md-2">
+                <input type="text" class="form-control" name="code" placeholder="Code EM" required>
+                <small id="code-error" class="text-danger">Ce code existe déjà</small>
+            </div>
+            
+            <div class="col-md-3">
+                <input type="text" class="form-control" name="title" placeholder="Titre" required>
+            </div>
+            
+            <div class="col-md-1">
+                <input type="number" class="form-control" name="credits" placeholder="Crédits" required>
+            </div>
+            
+            <div class="col-md-1">
+                <input type="number" class="form-control" name="coefficient" placeholder="Coef">
+            </div>
+            
+            <div class="col-md-1">
+                <input type="number" class="form-control" name="cm_hours" placeholder="CM" required>
+            </div>
+            
+            <div class="col-md-1">
+                <input type="number" class="form-control" name="td_hours" placeholder="TD" required>
+            </div>
+            
+            <div class="col-md-1">
+                <input type="number" class="form-control" name="tp_hours" placeholder="TP" required>
+            </div>
+            
+            <div class="col-md-2">
+                <input type="text" class="form-control" name="cm_professor" placeholder="Prof CM">
+            </div>
+            
+            <div class="col-md-2">
+                <input type="text" class="form-control" name="td_professor" placeholder="Prof TD">
+            </div>
+            
+            <div class="col-md-2">
+                <input type="text" class="form-control" name="tp_professor" placeholder="Prof TP">
+            </div>
+            
+            <div class="col-md-2">
+                <input type="text" class="form-control" name="cm_room" placeholder="Salle CM">
+            </div>
+            
+            <div class="col-md-2">
+                <input type="text" class="form-control" name="tp_room" placeholder="Salle TP">
+            </div>
+            
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary">Ajouter</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tableau des cours -->
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover">
+            <thead class="sticky-top bg-light">
+                <tr>
+                    <th>CodeEM</th>
+                    <th>Titre</th>
+                    <th>Crédits</th>
+                    <th>Coef</th>
+                    <th>CM</th>
+                    <th>TD</th>
+                    <th>TP</th>
+                    <th>VHT</th>
+                    <th>Prof CM</th>
+                    <th>Prof TD</th>
+                    <th>Prof TP</th>
+                    <th>Salle CM</th>
+                    <th>Salle TP</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="courseTableBody">
+                {% for course in courses %}
+                <tr data-course-id="{{ course.code }}">
+                    <td>{{ course.code }}</td>
+                    <td>{{ course.title }}</td>
+                    <td>{{ course.credits }}</td>
+                    <td>{{ course.coefficient|default:'' }}</td>
+                    <td>{{ course.cm_hours }}</td>
+                    <td>{{ course.td_hours }}</td>
+                    <td>{{ course.tp_hours }}</td>
+                    <td>{{ course.cm_hours|add:course.td_hours|add:course.tp_hours }}</td>
+                    <td>{{ course.cm_professor }}</td>
+                    <td>{{ course.td_professor }}</td>
+                    <td>{{ course.tp_professor }}</td>
+                    <td>{{ course.cm_room }}</td>
+                    <td>{{ course.tp_room }}</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger delete-course">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="14" class="text-center">Aucun cours trouvé</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 $(document).ready(function() {
-    // Delete course functionality
-    $(document).on('click', '.delete-row', function() {
-        const row = $(this).closest('tr');
-        const code = row.data('course-id');
-        
-        if (confirm('Are you sure you want to delete this course?')) {
-            $.ajax({
-                url: '{% url "delete_course" %}',
-                type: 'POST',
-                data: JSON.stringify({ code: code }),
-                contentType: 'application/json',
-                headers: {
-                    'X-CSRFToken': '{{ csrf_token }}'
-                },
-                success: function(response) {
-                    if (response.success) {
-                        row.fadeOut(400, function() {
-                            $(this).remove();
-                        });
-                    } else {
-                        alert('Error: ' + response.message);
-                    }
-                },
-                error: function(xhr) {
-                    alert('Error deleting course: ' + xhr.responseText);
-                }
-            });
-        }
+    const existingCodes = new Set({{ existing_codes|safe }});
+
+    // Validation code cours
+    $('input[name="code"]').on('input', function() {
+        const code = $(this).val().trim();
+        $('#code-error').toggle(existingCodes.has(code));
     });
 
-    // Edit row functionality
-    $(document).on('click', '.edit-row', function() {
-        const row = $(this).closest('tr');
-        const code = row.data('course-id');
+    // Gestion de l'ajout
+    $('#addCourseForm').submit(function(e) {
+        e.preventDefault();
+        const form = $(this);
         
-        // Hide edit/delete buttons, show save/cancel buttons
-        row.find('.edit-row, .delete-row').hide();
-        row.find('.save-row, .cancel-row').show();
-        
-        // Make cells editable
-        row.find('.editable').each(function() {
-            const cell = $(this);
-            const field = cell.data('field');
-            const currentValue = cell.text().trim();
-            
-            // Skip professor and room fields for now
-            if (field.includes('professor') || field.includes('room')) {
-                return;
-            }
-            
-            // Create input
-            const input = $('<input>')
-                .attr('type', field === 'title' ? 'text' : 'number')
-                .attr('class', 'form-control')
-                .val(currentValue)
-                .data('original-value', currentValue);
-            
-            cell.html(input).addClass('editing');
-        });
-    });
-
-    // Save row changes
-    $(document).on('click', '.save-row', function() {
-        const row = $(this).closest('tr');
-        const code = row.data('course-id');
-        const updates = {};
-        let hasChanges = false;
-        
-        // Collect changed values
-        row.find('input').each(function() {
-            const input = $(this);
-            const cell = input.closest('td');
-            const field = cell.data('field');
-            const newValue = input.val();
-            const originalValue = input.data('original-value');
-            
-            if (newValue !== originalValue) {
-                updates[field] = newValue;
-                hasChanges = true;
-            }
-        });
-        
-        if (!hasChanges) {
-            // No changes, just restore the row
-            restoreRow(row);
+        if ($('#code-error').is(':visible')) {
+            alert('Veuillez corriger le code du cours');
             return;
         }
-        
-        // Send updates to server
+
         $.ajax({
-            url: '{% url "update_course" %}',
-            type: 'POST',
-            data: JSON.stringify({
-                code: code,
-                updates: updates
-            }),
-            contentType: 'application/json',
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
+            url: form.attr('action'),
+            method: 'POST',
+            data: form.serialize(),
             success: function(response) {
-                if (response.success) {
-                    // Update cells with new values
-                    row.find('input').each(function() {
-                        const input = $(this);
-                        const cell = input.closest('td');
-                        cell.html(input.val()).removeClass('editing');
-                    });
-                    
-                    // Show edit/delete buttons, hide save/cancel
-                    row.find('.save-row, .cancel-row').hide();
-                    row.find('.edit-row, .delete-row').show();
-                } else {
-                    alert('Error: ' + response.message);
-                }
+                window.location.reload();
             },
             error: function(xhr) {
-                alert('Error updating course: ' + xhr.responseText);
+                try {
+                    const error = xhr.responseJSON.error;
+                    alert('Erreur : ' + error);
+                } catch {
+                    alert('Erreur inconnue');
+                }
             }
         });
     });
 
-    // Cancel row edit
-    $(document).on('click', '.cancel-row', function() {
+    // Suppression
+    $(document).on('click', '.delete-course', function() {
+        if (!confirm('Supprimer définitivement ce cours ?')) return;
+        
         const row = $(this).closest('tr');
-        restoreRow(row);
-    });
+        const courseCode = row.data('course-id');
 
-    function restoreRow(row) {
-        // Restore original values
-        row.find('input').each(function() {
-            const input = $(this);
-            const cell = input.closest('td');
-            cell.html(input.data('original-value')).removeClass('editing');
-        });
-        
-        // Show edit/delete buttons, hide save/cancel
-        row.find('.save-row, .cancel-row').hide();
-        row.find('.edit-row, .delete-row').show();
-    }
-
-    // Add new row functionality
-    $('#addNewRow').on('click', function() {
-        // Check if there's already a new row being added
-        if ($('.new-course-row').length > 0) {
-            return;
-        }
-
-        // Create new row HTML
-        const newRowHtml = `
-            <tr class="new-course-row">
-                <td><input type="text" class="form-control" name="code" placeholder="Code" required></td>
-                <td><input type="text" class="form-control" name="title" placeholder="Title" required></td>
-                <td><input type="number" class="form-control" name="credits" placeholder="Credits" required></td>
-                <td><input type="number" class="form-control" name="cm_hours" placeholder="CM Hours" required></td>
-                <td><input type="number" class="form-control" name="td_hours" placeholder="TD Hours" required></td>
-                <td><input type="number" class="form-control" name="tp_hours" placeholder="TP Hours" required></td>
-                <td><input type="number" class="form-control" name="vht" placeholder="VHT"></td>
-                <td><input type="text" class="form-control" name="cm_professor" placeholder="CM Professor"></td>
-                <td><input type="text" class="form-control" name="td_professor" placeholder="TD Professor"></td>
-                <td><input type="text" class="form-control" name="tp_professor" placeholder="TP Professor"></td>
-                <td><input type="text" class="form-control" name="cm_room" placeholder="CM Room"></td>
-                <td><input type="text" class="form-control" name="tp_room" placeholder="TP Room"></td>
-                <td>
-                    <button class="btn btn-sm btn-success save-new-course">
-                        <i class="fas fa-save"></i>
-                    </button>
-                    <button class="btn btn-sm btn-danger cancel-new-course">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </td>
-            </tr>
-        `;
-        
-        // Append new row to table
-        $('#courseTableBody').append(newRowHtml);
-        
-        // Focus first input
-        $('.new-course-row input:first').focus();
-    });
-
-    // Save new course
-    $(document).on('click', '.save-new-course', function() {
-        const row = $(this).closest('tr');
-        const courseData = {};
-        
-        // Collect all input values
-        row.find('input').each(function() {
-            courseData[$(this).attr('name')] = $(this).val();
-        });
-
-        // Validate required fields
-        const requiredFields = ['code', 'title', 'credits', 'cm_hours', 'td_hours', 'tp_hours'];
-        const missingFields = requiredFields.filter(field => !courseData[field]);
-        
-        if (missingFields.length > 0) {
-            alert('Please fill in all required fields: ' + missingFields.join(', '));
-            return;
-        }
-
-        // Send data to server
         $.ajax({
-            url: '{% url "add_course" %}',
-            type: 'POST',
-            data: courseData,
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}'
+            url: "{% url 'delete_course' %}",
+            method: "POST",
+            data: {
+                code: courseCode,
+                department_id: {{ department.id }},
+                semester_id: {{ semester.id }},
+                csrfmiddlewaretoken: '{{ csrf_token }}'
             },
-            success: function(response) {
-                if (response.status === 'success') {
-                    // Replace input row with normal row
-                    const newRowHtml = `
-                        <tr data-course-id="${response.course.code}">
-                            <td class="editable" data-field="code">${response.course.code}</td>
-                            <td class="editable" data-field="title">${response.course.title}</td>
-                            <td class="editable" data-field="credits">${response.course.credits}</td>
-                            <td class="editable" data-field="cm_hours">${response.course.cm_hours}</td>
-                            <td class="editable" data-field="td_hours">${response.course.td_hours}</td>
-                            <td class="editable" data-field="tp_hours">${response.course.tp_hours}</td>
-                            <td class="editable" data-field="vht">${response.course.vht || ''}</td>
-                            <td class="editable" data-field="cm_professor">${response.course.cm_professor || ''}</td>
-                            <td class="editable" data-field="td_professor">${response.course.td_professor || ''}</td>
-                            <td class="editable" data-field="tp_professor">${response.course.tp_professor || ''}</td>
-                            <td class="editable" data-field="cm_room">${response.course.cm_room || ''}</td>
-                            <td class="editable" data-field="tp_room">${response.course.tp_room || ''}</td>
-                            <td>
-                                <button class="btn btn-sm btn-primary edit-row">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <button class="btn btn-sm btn-danger delete-row">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                                <button class="btn btn-sm btn-success save-row" style="display: none;">
-                                    <i class="fas fa-save"></i>
-                                </button>
-                                <button class="btn btn-sm btn-secondary cancel-row" style="display: none;">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    `;
-                    row.replaceWith(newRowHtml);
-                } else {
-                    alert('Error: ' + response.error);
-                }
+            success: function() {
+                row.fadeOut(300, () => row.remove());
             },
             error: function(xhr) {
-                alert('Error adding course: ' + xhr.responseText);
+                alert('Erreur: ' + xhr.responseJSON.error);
             }
         });
-    });
-
-    // Cancel new course
-    $(document).on('click', '.cancel-new-course', function() {
-        $(this).closest('tr').remove();
     });
 });
 </script>

@@ -27,7 +27,8 @@ class Command(BaseCommand):
                 'td_professor': 'Dr. Test',
                 'tp_professor': 'Dr. Test',
                 'cm_room': 'R101',
-                'tp_room': 'LAB1'
+                'tp_room': 'LAB1',
+                'department_id': 1
             },
             {
                 'code': 'TEST02',
@@ -39,7 +40,8 @@ class Command(BaseCommand):
                 'cm_professor': 'Prof. Example',
                 'tp_professor': 'Dr. Lab',
                 'cm_room': 'R102',
-                'tp_room': 'LAB2'
+                'tp_room': 'LAB2',
+                'department_id': 1
             }
         ]
 

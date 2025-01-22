@@ -4,8 +4,17 @@
 
 {% block extra_css %}
 <style>
+    body {
+        overflow-x: hidden;
+    }
+
+    .main-content {
+        padding: 20px !important;
+        min-height: calc(100vh - 100px);
+    }
+
     .table-responsive {
-        max-height: calc(100vh - 150px);
+        max-height: calc(100vh - 250px);
         overflow-y: auto;
     }
 
@@ -15,26 +24,20 @@
     }
 
     .editing {
-        padding: 0 !important;
+        padding: 2px !important;
     }
 
     .editing input {
         width: 100%;
         height: 100%;
-        border: none;
-        padding: 8px;
+        border: 1px solid #3498db;
+        padding: 4px;
         background-color: #fff;
     }
 
     .progress-cell {
         font-weight: bold;
-    }
-
-    .section-header {
-        background-color: #f8f9fa;
-        font-weight: bold;
         text-align: center;
-        padding: 10px;
     }
 
     .alert {
@@ -46,19 +49,27 @@
     }
 
     .invalid-input {
-        border: 1px solid red !important;
+        border: 2px solid red !important;
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid">
-    <div id="alert" class="alert" role="alert"></div>
-    <h2>Bilan des Cours</h2>
-    <button class="btn btn-primary mb-3" onclick="location.reload()">Rafraîchir</button>
+    <div id="alert" class="alert alert-dismissible fade show" role="alert"></div>
+    
+    <div class="row mb-3">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <h2>Bilan des Cours</h2>
+            <button class="btn btn-primary" onclick="location.reload()">
+                <i class="fas fa-sync-alt"></i> Rafraîchir
+            </button>
+        </div>
+    </div>
+
     <div class="table-responsive">
         <table class="table table-bordered table-hover">
-            <thead>
+            <thead class="thead-light">
                 <tr>
                     <th>CodeEM</th>
                     <th>Titre</th>
@@ -104,162 +115,101 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
-    $(document).ready(function() {
-        // Get CSRF token
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
+$(document).ready(function() {
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
                 }
             }
-            return cookieValue;
         }
-        const csrftoken = getCookie('csrftoken');
+        return cookieValue;
+    }
+    const csrftoken = getCookie('csrftoken');
 
-        // Function to show alert
-        function showAlert(message, type) {
-            const alert = $('#alert');
-            alert.removeClass('alert-success alert-danger')
-                 .addClass(`alert-${type}`)
-                 .html(message)
-                 .fadeIn()
-                 .delay(3000)
-                 .fadeOut();
-        }
+    function showAlert(message, type = 'success') {
+        const alert = $('#alert');
+        alert.removeClass('alert-success alert-danger alert-warning')
+             .addClass(`alert-${type}`)
+             .html(`${message}<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>`)
+             .show();
+        setTimeout(() => alert.hide(), 3000);
+    }
 
-        // Function to validate input
-        function validateInput(value) {
-            return /^\d+$/.test(value) && parseInt(value) >= 0;
-        }
+    function validateInput(value) {
+        return !isNaN(parseFloat(value)) && isFinite(value);
+    }
 
-        // Function to calculate progress
-        function calculateProgress(completed, planned) {
-            completed = parseFloat(completed) || 0;
-            planned = parseFloat(planned) || 0;
-            return planned > 0 ? ((completed / planned) * 100).toFixed(2) : '0.00';
-        }
+    $('.editable').on('click', function() {
+        const cell = $(this);
+        if (!cell.hasClass('editing')) {
+            const originalValue = cell.text().trim();
+            const input = $('<input>', {
+                type: 'text',
+                value: originalValue,
+                class: 'form-control'
+            });
 
-        // Function to update progress percentages
-        function updateProgress(cell) {
-            const row = cell.closest('tr');
-            
-            // Get planned hours
-            const cmPlanned = parseFloat(row.find('td:nth-child(4)').text()) || 0;
-            const tdPlanned = parseFloat(row.find('td:nth-child(7)').text()) || 0;
-            const tpPlanned = parseFloat(row.find('td:nth-child(10)').text()) || 0;
-            
-            // Get completed hours
-            const cmCompleted = parseFloat(row.find('td:nth-child(5)').text()) || 0;
-            const tdCompleted = parseFloat(row.find('td:nth-child(8)').text()) || 0;
-            const tpCompleted = parseFloat(row.find('td:nth-child(11)').text()) || 0;
+            cell.html(input).addClass('editing');
+            input.focus();
 
-            console.log('Planned hours:', {cmPlanned, tdPlanned, tpPlanned});
-            console.log('Completed hours:', {cmCompleted, tdCompleted, tpCompleted});
-
-            // Update individual progress cells
-            row.find('td:nth-child(6)').text(`${calculateProgress(cmCompleted, cmPlanned)}%`);
-            row.find('td:nth-child(9)').text(`${calculateProgress(tdCompleted, tdPlanned)}%`);
-            row.find('td:nth-child(12)').text(`${calculateProgress(tpCompleted, tpPlanned)}%`);
-
-            // Update total cells
-            const totalPlanned = cmPlanned + tdPlanned + tpPlanned;
-            const totalCompleted = cmCompleted + tdCompleted + tpCompleted;
-            row.find('td:nth-child(13)').text(totalPlanned);
-            row.find('td:nth-child(14)').text(totalCompleted);
-            row.find('td:nth-child(15)').text(`${calculateProgress(totalCompleted, totalPlanned)}%`);
-
-            console.log('Total progress:', calculateProgress(totalCompleted, totalPlanned));
-        }
-
-        // Make cells editable on click
-        $('.editable').on('click', function() {
-            const cell = $(this);
-            if (!cell.hasClass('editing')) {
-                const value = cell.text().trim();
-                cell.data('original-value', value);  // Store original value
-                const input = $('<input type="text" class="form-control">').val(value);
-                cell.html(input).addClass('editing');
-                input.focus();
-            }
-        });
-
-        // Handle input blur and enter key
-        $(document).on('blur keypress', '.editing input', function(e) {
-            if (e.type === 'keypress' && e.which !== 13) return;
-            
-            const input = $(this);
-            const cell = input.parent();
-            const newValue = input.val().trim();
-            const oldValue = cell.data('original-value') || cell.text().trim();
-            const field = cell.data('field');
-            const courseCode = cell.data('course-code');
-
-            // Validate input
-            if (!validateInput(newValue)) {
-                input.addClass('invalid-input');
-                showAlert('Veuillez entrer un nombre entier positif', 'danger');
-                return;
-            }
-
-            // Get planned hours for validation
-            const row = cell.closest('tr');
-            let plannedHours = 0;
-            if (field === 'cm_completed') {
-                plannedHours = parseFloat(row.find('td:nth-child(4)').text());
-            } else if (field === 'td_completed') {
-                plannedHours = parseFloat(row.find('td:nth-child(7)').text());
-            } else if (field === 'tp_completed') {
-                plannedHours = parseFloat(row.find('td:nth-child(10)').text());
-            }
-
-            // Validate against planned hours
-            if (parseFloat(newValue) > plannedHours) {
-                input.addClass('invalid-input');
-                showAlert(`Les heures réalisées ne peuvent pas dépasser les heures planifiées (${plannedHours}h)`, 'danger');
-                return;
-            }
-
-            // Send update to server
-            $.ajax({
-                url: '{% url "update_bilan" %}',
-                method: 'POST',
-                headers: {'X-CSRFToken': csrftoken},
-                contentType: 'application/json',
-                data: JSON.stringify({
-                    course_code: courseCode,
-                    field: field,
-                    value: newValue
-                }),
-                success: function(response) {
-                    cell.html(newValue).removeClass('editing');
-                    updateProgress(cell);
-                    showAlert('Mise à jour réussie', 'success');
-                },
-                error: function(xhr) {
-                    cell.html(oldValue).removeClass('editing');
-                    showAlert('Erreur lors de la mise à jour: ' + (xhr.responseJSON?.error || 'Erreur inconnue'), 'danger');
+            input.on('blur', function() {
+                const newValue = input.val().trim();
+                
+                if (validateInput(newValue) && newValue !== originalValue) {
+                    $.ajax({
+                        url: '/api/update_bilan/',
+                        method: 'POST',
+                        data: {
+                            course_code: cell.data('course-code'),
+                            field: cell.data('field'),
+                            value: newValue
+                        },
+                        headers: {
+                            'X-CSRFToken': csrftoken
+                        },
+                        success: function(response) {
+                            cell.text(newValue).removeClass('editing');
+                            showAlert('Mise à jour réussie');
+                        },
+                        error: function(xhr) {
+                            cell.text(originalValue).removeClass('editing');
+                            showAlert('Erreur de mise à jour', 'danger');
+                        }
+                    });
+                } else {
+                    cell.text(originalValue).removeClass('editing');
                 }
             });
-        });
-
-        // Handle click outside editing cell
-        $(document).on('click', function(e) {
-            if (!$(e.target).closest('.editing').length && !$(e.target).hasClass('editable')) {
-                $('.editing input').blur();
-            }
-        });
-
-        // Initialize progress for all rows
-        $('.editable').each(function() {
-            updateProgress($(this));
-        });
+        }
     });
+
+    // Diagnostic logging
+    console.log('Bilan page loaded');
+    console.log('Document height:', $(document).height());
+    console.log('Window height:', $(window).height());
+    console.log('Navbar height:', $('.navbar').height());
+    console.log('Main content height:', $('.main-content').height());
+
+    function checkLayout() {
+        const $navbar = $('.navbar');
+        const $mainContent = $('.main-content');
+        
+        console.log('Navbar visibility:', $navbar.is(':visible'));
+        console.log('Navbar display:', $navbar.css('display'));
+        console.log('Main content display:', $mainContent.css('display'));
+        console.log('Main content visibility:', $mainContent.is(':visible'));
+    }
+
+    checkLayout();
+    setTimeout(checkLayout, 500);  // Check again after a short delay
+});
 </script>
 {% endblock %}

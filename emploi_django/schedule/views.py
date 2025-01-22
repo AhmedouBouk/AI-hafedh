@@ -1,34 +1,70 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404, redirect
 from django.views.generic import ListView
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.core.exceptions import ObjectDoesNotExist
 import json
-from .models import Course, Professor, Room, CourseAssignment, TimeSlot
+from .models import Course, Professor, Room, CourseAssignment, TimeSlot, Department, Semester
+from django.shortcuts import get_object_or_404
 
-def schedule_view(request):
-    """View for displaying the weekly schedule"""
-    context = {
-        'days': TimeSlot.DAYS,
-        'periods': TimeSlot.PERIODS,
-        'weeks': range(1, 18),  # S1 to S17
-    }
-    return render(request, 'schedule/schedule.html', context)
-
-def plan_view(request):
+def plan_view(request, dept_id, semester_id):
     """View for managing the schedule plan"""
+    department = get_object_or_404(Department, id=dept_id)
+    semester = get_object_or_404(Semester, id=semester_id)
+    
+    # Store in session
+    request.session['department_id'] = dept_id
+    request.session['semester_id'] = semester_id
+    
     context = {
         'days': TimeSlot.DAYS,
         'periods': TimeSlot.PERIODS,
         'weeks': range(1, 18),
+        'dept_id': dept_id,
+        'semester_id': semester_id,
+        'department': department,
+        'semester': semester,
     }
     return render(request, 'schedule/plan.html', context)
 
 class CourseListView(ListView):
-    """View for displaying and managing the course database"""
+    """
+    List view for courses, now filtered by department and semester
+    """
     model = Course
     template_name = 'schedule/database.html'
     context_object_name = 'courses'
+
+    def get_queryset(self):
+        """
+        Override queryset to filter by department and semester
+        """
+        dept_id = self.kwargs.get('dept_id')
+        semester_id = self.kwargs.get('semester_id')
+        
+        if not dept_id or not semester_id:
+            # If no department or semester specified, return an empty queryset
+            return Course.objects.none()
+        
+        # Filtrer les cours via les TimeSlots
+        return Course.objects.filter(
+            courseassignment__timeslot__department_id=dept_id,
+            courseassignment__timeslot__semester_id=semester_id
+        ).distinct()
+
+    def get_context_data(self, **kwargs):
+        """
+        Add department and semester to context
+        """
+        context = super().get_context_data(**kwargs)
+        
+        dept_id = self.kwargs.get('dept_id')
+        semester_id = self.kwargs.get('semester_id')
+        
+        context['department'] = get_object_or_404(Department, id=dept_id)
+        context['semester'] = get_object_or_404(Semester, id=semester_id)
+        
+        return context
 
 # API Views
 def get_courses(request):
@@ -102,7 +138,7 @@ def get_course_info(request, code):
             return JsonResponse({'status': 'success'})
             
     except ObjectDoesNotExist:
-        return JsonResponse({'error': 'Course not found'}, status=404)
+        return JsonResponse({'error': 'Course not found.'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
@@ -164,72 +200,153 @@ def get_plan(request, week):
 
 @csrf_exempt
 def save_plan(request):
-    """Save schedule plan and update progress"""
+    """Save schedule plan and update progress with department/semester isolation"""
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
             plan = data['plan']
-            
-            print(f"Received plan data: {plan}")
-            
-            # Group slots by week for batch processing
+            department_id = data.get('department_id')
+            semester_id = data.get('semester_id')
+
+            # Validate required parameters
+            if not department_id or not semester_id:
+                return JsonResponse({'error': 'Department and semester IDs required'}, status=400)
+
             slots_by_week = {}
-            affected_courses = set()  # Track which courses are affected
-            
+            affected_courses = set()
+
+            # Validate department/semester existence
+            department = Department.objects.get(id=department_id)
+            semester = Semester.objects.get(id=semester_id)
+
+            # Group slots by week
             for item in plan:
                 week = item['week']
-                if week not in slots_by_week:
-                    slots_by_week[week] = []
-                slots_by_week[week].append(item)
-                # Track affected course
+                slots_by_week.setdefault(week, []).append(item)
                 affected_courses.add(item['course_code'])
-            
-            # Process each week's slots
+
+            # Process slots for each week
             for week, items in slots_by_week.items():
-                print(f"Processing week {week}")
-                # Delete existing slots for this week
-                TimeSlot.objects.filter(week=week).delete()
-                
-                # Create new slots for this week
+                # Delete existing slots for this week+department+semester
+                TimeSlot.objects.filter(
+                    week=week,
+                    department=department,
+                    semester=semester
+                ).delete()
+
+                # Create new slots
                 for item in items:
                     try:
-                        print(f"Processing item: {item}")
-                        course = Course.objects.get(code=item['course_code'])
+                        course = Course.objects.get(
+                            code=item['course_code'],
+                            department=department,
+                            semester=semester
+                        )
                         assignment = CourseAssignment.objects.get(
                             course=course,
                             type=item['type']
                         )
                         
-                        # Create the time slot
                         TimeSlot.objects.create(
-                            week=item['week'],
+                            week=week,
                             day=item['day'],
                             period=item['period'],
-                            course_assignment=assignment
+                            course_assignment=assignment,
+                            department=department,
+                            semester=semester
                         )
+
                     except Exception as e:
-                        print(f"Error processing item: {str(e)}")
-                        return JsonResponse({'error': str(e)}, status=500)
-            
-            # Update progress for all affected courses
+                        return JsonResponse({'error': f"Invalid data: {str(e)}"}, status=400)
+
+            # Update course progress
             for course_code in affected_courses:
                 try:
-                    course = Course.objects.get(code=course_code)
+                    course = Course.objects.get(
+                        code=course_code,
+                        department=department,
+                        semester=semester
+                    )
                     course.update_completed_hours()
                 except Course.DoesNotExist:
-                    print(f"Course {course_code} not found")
-                except Exception as e:
-                    print(f"Error updating progress for {course_code}: {str(e)}")
-            
+                    print(f"Course {course_code} not found in {department.name}/{semester.number}")
+
             return JsonResponse({'status': 'success'})
-            
+
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+        except Department.DoesNotExist:
+            return JsonResponse({'error': 'Invalid department ID'}, status=404)
+        except Semester.DoesNotExist:
+            return JsonResponse({'error': 'Invalid semester ID'}, status=404)
         except Exception as e:
-            print(f"Error saving plan: {str(e)}")
-            return JsonResponse({'error': str(e)}, status=500)
-    
+            print(f"Server error: {str(e)}")
+            return JsonResponse({'error': 'Internal server error'}, status=500)
+
     return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+def add_time_slot(request):
+    """
+    API view to add a time slot to the schedule
+    """
+    if request.method == 'POST':
+        try:
+            # Extract data from request
+            slot = request.POST.get('slot')
+            course_code = request.POST.get('course_code')
+            course_type = request.POST.get('course_type')
+            professor_id = request.POST.get('professor_id')
+            room_id = request.POST.get('room_id')
+            department_id = request.POST.get('department_id')
+            semester_id = request.POST.get('semester_id')
+            week = request.POST.get('week')
+
+            # Validate required fields
+            if not all([slot, course_code, course_type, professor_id, room_id, department_id, semester_id, week]):
+                return JsonResponse({'status': 'error', 'message': 'Tous les champs sont requis'})
+
+            # Retrieve related objects
+            course = Course.objects.get(code=course_code)
+            professor = Professor.objects.get(id=professor_id)
+            room = Room.objects.get(id=room_id)
+            department = Department.objects.get(id=department_id)
+            semester = Semester.objects.get(id=semester_id)
+
+            # Create course assignment
+            course_assignment, created = CourseAssignment.objects.get_or_create(
+                course=course,
+                professor=professor,
+                type=course_type,
+                room=room
+            )
+
+            # Parse slot details
+            day, period = slot.split('_')
+
+            # Create time slot
+            time_slot, slot_created = TimeSlot.objects.get_or_create(
+                day=day,
+                period=period,
+                week=week,
+                course_assignment=course_assignment,
+                department=department,
+                semester=semester
+            )
+
+            # Update course completed hours
+            course.update_completed_hours()
+
+            return JsonResponse({
+                'status': 'success', 
+                'message': 'Créneau ajouté avec succès',
+                'slot_id': time_slot.id
+            })
+
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)})
+
+    return JsonResponse({'status': 'error', 'message': 'Méthode non autorisée'})
 
 @csrf_exempt
 def update_course(request):
@@ -251,11 +368,8 @@ def update_course(request):
             'success': True,
             'message': 'Course updated successfully'
         })
-    except Course.DoesNotExist:
-        return JsonResponse({
-            'success': False,
-            'message': 'Course not found'
-        }, status=404)
+    except ObjectDoesNotExist:
+        return JsonResponse({'error': 'Course not found.'}, status=404)
     except Exception as e:
         return JsonResponse({
             'success': False,
@@ -289,7 +403,7 @@ def delete_course(request):
                     'success': True,
                     'message': f'Course {course_name} deleted successfully'
                 })
-            except Course.DoesNotExist:
+            except ObjectDoesNotExist:
                 return JsonResponse({
                     'success': False,
                     'message': f'Course {code} not found'
@@ -320,22 +434,30 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def bilan_view(request):
-    """View for displaying the course progress"""
+def bilan_view(request, dept_id, semester_id):
+    """
+    View for displaying the course progress with strict department and semester isolation
+    """
     try:
-        courses = Course.objects.all().order_by('code')
+        department = Department.objects.get(id=dept_id)
+        semester = Semester.objects.get(id=semester_id)
+        courses = Course.objects.filter(department=department, semester=semester)
         for course in courses:
             course.total_progress_value = course.total_progress()
         context = {
             'courses': courses,
-            'total_progress': [course.total_progress_value for course in courses]
+            'total_progress': [course.total_progress_value for course in courses],
+            'department': department,
+            'semester': semester
         }
-        return render(request, 'schedule/Bilan.html', context)
+        return render(request, 'schedule/bilan.html', context)
     except Exception as e:
         logger.error(f"Error in bilan_view: {str(e)}")
-        return render(request, 'schedule/Bilan.html', {
+        return render(request, 'schedule/bilan.html', {
             'courses': [],
-            'error_message': "Une erreur s'est produite lors du chargement des données."
+            'error_message': "Une erreur s'est produite lors du chargement des données.",
+            'department': None,
+            'semester': None
         })
 
 @csrf_exempt
@@ -392,8 +514,8 @@ def update_bilan(request):
         }
         return JsonResponse(response_data)
 
-    except Course.DoesNotExist:
-        return JsonResponse({'error': 'Course not found'}, status=404)
+    except ObjectDoesNotExist:
+        return JsonResponse({'error': 'Course not found.'}, status=404)
     except json.JSONDecodeError:
         return JsonResponse({'error': 'Invalid JSON data'}, status=400)
     except Exception as e:
@@ -401,108 +523,530 @@ def update_bilan(request):
         return JsonResponse({'error': 'Server error'}, status=500)
 
 @csrf_exempt
-def add_course(request):
-    """Add a new course to the database"""
+
+def add_course(request, dept_id, semester_id):
+    """
+    Ajoute un nouveau cours avec toutes les associations
+    """
     if request.method == 'POST':
         try:
-            print("Received data:", request.POST)  # Debug print
-            
-            # Extract course data
-            course_data = {
-                'code': request.POST.get('code'),
-                'title': request.POST.get('title'),
-                'credits': int(request.POST.get('credits', 0)),
-                'cm_hours': int(request.POST.get('cm_hours', 0)),
-                'td_hours': int(request.POST.get('td_hours', 0)),
-                'tp_hours': int(request.POST.get('tp_hours', 0)),
-            }
-            
-            print("Processed course data:", course_data)  # Debug print
-            
-            # Validate required fields
+            department = get_object_or_404(Department, id=dept_id)
+            semester = get_object_or_404(Semester, id=semester_id)
+            data = request.POST.dict()
+
+            # Validation des champs obligatoires
             required_fields = ['code', 'title', 'credits', 'cm_hours', 'td_hours', 'tp_hours']
-            missing_fields = [field for field in required_fields if not course_data.get(field)]
-            
-            if missing_fields:
+            if missing := [f for f in required_fields if not data.get(f)]:
                 return JsonResponse({
                     'status': 'error',
-                    'error': f'Missing required fields: {", ".join(missing_fields)}'
+                    'error': f'Champs requis manquants: {", ".join(missing)}'
                 }, status=400)
-            
-            # Create course
-            course = Course.objects.create(**course_data)
-            print(f"Created course: {course.code}")  # Debug print
-            
-            # Handle professor assignments
-            for type_code in ['CM', 'TD', 'TP']:
-                professor_name = request.POST.get(f'{type_code.lower()}_professor')
-                if professor_name:
-                    print(f"Creating {type_code} professor: {professor_name}")  # Debug print
-                    professor, _ = Professor.objects.get_or_create(name=professor_name)
-                    CourseAssignment.objects.create(
-                        course=course,
-                        professor=professor,
-                        type=type_code
-                    )
-            
-            # Handle room assignments
-            cm_room = request.POST.get('cm_room')
-            tp_room = request.POST.get('tp_room')
-            
-            if cm_room:
-                print(f"Creating CM room: {cm_room}")  # Debug print
-                room, _ = Room.objects.get_or_create(number=cm_room)
-                assignments = CourseAssignment.objects.filter(course=course, type='CM')
-                if assignments.exists():
-                    assignments.update(room=room)
-            
-            if tp_room:
-                print(f"Creating TP room: {tp_room}")  # Debug print
-                room, _ = Room.objects.get_or_create(number=tp_room)
-                assignments = CourseAssignment.objects.filter(course=course, type='TP')
-                if assignments.exists():
-                    assignments.update(room=room)
-            
-            # Get professor names for response
-            cm_professor = CourseAssignment.objects.filter(course=course, type='CM').first()
-            td_professor = CourseAssignment.objects.filter(course=course, type='TD').first()
-            tp_professor = CourseAssignment.objects.filter(course=course, type='TP').first()
-            
-            # Return success response with course data
-            response_data = {
+
+            # Vérification unicité code cours
+            if Course.objects.filter(
+                code=data['code'],
+                department=department,
+                semester=semester
+            ).exists():
+                return JsonResponse({
+                    'status': 'error',
+                    'error': f'Le code {data["code"]} existe déjà pour ce département/semestre'
+                }, status=400)
+
+            # Création du cours
+            course = Course.objects.create(
+                code=data['code'],
+                title=data['title'],
+                credits=int(data['credits']),
+                cm_hours=int(data['cm_hours']),
+                td_hours=int(data['td_hours']),
+                tp_hours=int(data['tp_hours']),
+                coefficient=int(data.get('coefficient', 0)),
+                department=department,
+                semester=semester
+            )
+
+            # Gestion des associations
+            assignments = {
+                'CM': {
+                    'prof': data.get('cm_professor'),
+                    'room': data.get('cm_room')
+                },
+                'TD': {
+                    'prof': data.get('td_professor'),
+                    'room': data.get('td_room')
+                },
+                'TP': {
+                    'prof': data.get('tp_professor'),
+                    'room': data.get('tp_room')
+                }
+            }
+
+            for type_assignment, values in assignments.items():
+                if values['prof']:
+                    try:
+                        professor = Professor.objects.get(id=values['prof'])
+                        room = Room.objects.get(id=values['room']) if values['room'] else None
+                        
+                        CourseAssignment.objects.create(
+                            course=course,
+                            type=type_assignment,
+                            professor=professor,
+                            room=room,
+                            department=department,
+                            semester=semester
+                        )
+                    except Exception as e:
+                        return JsonResponse({
+                            'status': 'error',
+                            'error': f'Erreur {type_assignment}: {str(e)}'
+                        }, status=400)
+
+            return JsonResponse({
                 'status': 'success',
                 'course': {
                     'code': course.code,
                     'title': course.title,
-                    'credits': course.credits,
-                    'cm_hours': course.cm_hours,
-                    'td_hours': course.td_hours,
-                    'tp_hours': course.tp_hours,
-                    'vht': course.vht if hasattr(course, 'vht') else '',
-                    'cm_professor': cm_professor.professor.name if cm_professor else '',
-                    'td_professor': td_professor.professor.name if td_professor else '',
-                    'tp_professor': tp_professor.professor.name if tp_professor else '',
-                    'cm_room': cm_room or '',
-                    'tp_room': tp_room or '',
+                    'assignments': {
+                        'CM': course.get_cm_assignment().professor.name if course.get_cm_assignment() else None,
+                        'TD': course.get_td_assignment().professor.name if course.get_td_assignment() else None,
+                        'TP': course.get_tp_assignment().professor.name if course.get_tp_assignment() else None
+                    }
                 }
-            }
-            
-            print("Sending response:", response_data)  # Debug print
-            return JsonResponse(response_data)
-            
-        except ValueError as e:
-            return JsonResponse({
-                'status': 'error',
-                'error': f'Invalid value: {str(e)}'
-            }, status=400)
+            })
+
         except Exception as e:
-            print(f"Error in add_course: {str(e)}")  # Debug print
             return JsonResponse({
                 'status': 'error',
-                'error': str(e)
+                'error': f'Erreur serveur: {str(e)}'
             }, status=500)
-    
+
     return JsonResponse({
         'status': 'error',
-        'error': 'Invalid request method'
+        'error': 'Méthode non autorisée'
     }, status=405)
+def course_list_view(request, dept_id, semester_id):
+    """
+    List courses for a specific department and semester
+    """
+    department = get_object_or_404(Department, id=dept_id)
+    semester = get_object_or_404(Semester, id=semester_id)
+    
+    courses = Course.objects.filter(
+        department=department, 
+        semester=semester
+    )
+    
+    return render(request, 'schedule/database.html', {
+        'courses': courses,
+        'department': department,
+        'semester': semester
+    })
+
+def create_course_assignment(request):
+    """
+    Create a course assignment with department and semester constraints
+    """
+    if request.method == 'POST':
+        try:
+            # Get department and semester from form
+            department_id = request.POST.get('department')
+            semester_id = request.POST.get('semester')
+            
+            department = Department.objects.get(id=department_id)
+            semester = Semester.objects.get(id=semester_id)
+            
+            course_assignment = CourseAssignment.objects.create(
+                course_id=request.POST.get('course'),
+                professor_id=request.POST.get('professor'),
+                type=request.POST.get('type'),
+                room_id=request.POST.get('room'),
+                department=department,
+                semester=semester
+            )
+            
+            return JsonResponse({
+                'status': 'success', 
+                'message': 'Course assignment created successfully',
+                'assignment_id': course_assignment.id
+            })
+        except Exception as e:
+            return JsonResponse({
+                'status': 'error', 
+                'message': str(e)
+            }, status=400)
+
+def add_time_slot(request):
+    """
+    Add a time slot with department and semester constraints
+    """
+    if request.method == 'POST':
+        try:
+            # Get department and semester from form
+            department_id = request.POST.get('department')
+            semester_id = request.POST.get('semester')
+            
+            department = Department.objects.get(id=department_id)
+            semester = Semester.objects.get(id=semester_id)
+            
+            time_slot = TimeSlot.objects.create(
+                day=request.POST.get('day'),
+                period=request.POST.get('period'),
+                week=request.POST.get('week'),
+                course_assignment_id=request.POST.get('course_assignment'),
+                department=department,
+                semester=semester
+            )
+            
+            return JsonResponse({
+                'status': 'success', 
+                'message': 'Time slot added successfully',
+                'time_slot_id': time_slot.id
+            })
+        except Exception as e:
+            return JsonResponse({
+                'status': 'error', 
+                'message': str(e)
+            }, status=400)
+
+def department_selection(request):
+    """
+    View for selecting department and semester
+    """
+    departments = Department.objects.all()
+    
+    if request.method == 'POST':
+        dept_id = request.POST.get('department')
+        semester_id = request.POST.get('semester')
+        
+        if dept_id and semester_id:
+            return redirect('schedule:base', dept_id=dept_id, semester_id=semester_id)
+    
+    return render(request, 'schedule/selection.html', {
+        'departments': departments
+    })
+
+def get_semesters(request, department_id):
+    """
+    API view to get semesters for a specific department
+    """
+    department = Department.objects.get(id=department_id)
+    semesters = Semester.objects.filter(department=department).values('id', 'number')
+    return JsonResponse(list(semesters), safe=False)
+
+def schedule_view(request, dept_id, semester_id):
+    """
+    View for displaying schedule with strict department and semester isolation
+    """
+    department = get_object_or_404(Department, id=dept_id)
+    semester = get_object_or_404(Semester, id=semester_id)
+    
+    # Stocker en session
+    request.session['department_id'] = dept_id
+    request.session['semester_id'] = semester_id
+    
+    # Récupérer les assignations de cours pour ce département et semestre
+    course_assignments = CourseAssignment.objects.filter(
+        department_id=dept_id, 
+        semester_id=semester_id
+    )
+    
+    # Récupérer les créneaux horaires
+    time_slots = TimeSlot.objects.filter(
+        department_id=dept_id, 
+        semester_id=semester_id
+    ).select_related(
+        'course_assignment', 
+        'course_assignment__course', 
+        'course_assignment__professor'
+    ).order_by('week', 'day', 'period')
+    
+    context = {
+        'department': department,
+        'semester': semester,
+        'dept_id': dept_id,
+        'semester_id': semester_id,
+        'days': TimeSlot.DAYS,
+        'periods': TimeSlot.PERIODS,
+        'time_slots': time_slots,
+        'weeks': range(1, 18)  # Ajustez selon vos besoins
+    }
+    
+    return render(request, 'schedule/schedule.html', context)
+
+def plan_view(request, dept_id, semester_id):
+    """
+    View for displaying plan with strict department and semester isolation
+    """
+    department = get_object_or_404(Department, id=dept_id)
+    semester = get_object_or_404(Semester, id=semester_id)
+    
+    # Stocker en session
+    request.session['department_id'] = dept_id
+    request.session['semester_id'] = semester_id
+    
+    # Récupérer les assignations de cours
+    course_assignments = CourseAssignment.objects.filter(
+        department_id=dept_id, 
+        semester_id=semester_id
+    )
+    
+    # Récupérer les créneaux horaires
+    time_slots = TimeSlot.objects.filter(
+        department_id=dept_id, 
+        semester_id=semester_id
+    ).select_related(
+        'course_assignment', 
+        'course_assignment__course', 
+        'course_assignment__professor'
+    ).order_by('week', 'day', 'period')
+    
+    context = {
+        'days': TimeSlot.DAYS,
+        'periods': TimeSlot.PERIODS,
+        'weeks': range(1, 18),
+        'dept_id': dept_id,
+        'semester_id': semester_id,
+        'department': department,
+        'semester': semester,
+        'time_slots': time_slots,
+    }
+    return render(request, 'schedule/plan.html', context)
+
+def bilan_view(request, dept_id, semester_id):
+    """
+    View for displaying the course progress with strict department and semester isolation
+    """
+    department = get_object_or_404(Department, id=dept_id)
+    semester = get_object_or_404(Semester, id=semester_id)
+    
+    # Stocker en session
+    request.session['department_id'] = dept_id
+    request.session['semester_id'] = semester_id
+    
+    # Récupérer les assignations de cours
+    course_assignments = CourseAssignment.objects.filter(
+        department_id=dept_id, 
+        semester_id=semester_id
+    )
+    
+    # Récupérer les cours via les assignations de cours
+    courses = Course.objects.filter(
+        courseassignment__department_id=dept_id,
+        courseassignment__semester_id=semester_id
+    ).distinct()
+    
+    context = {
+        'courses': courses,
+        'department': department,
+        'semester': semester,
+        'dept_id': dept_id,
+        'semester_id': semester_id
+    }
+    return render(request, 'schedule/Bilan.html', context)
+from django.shortcuts import get_object_or_404
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+from .models import Course, TimeSlot
+@csrf_exempt  # À remplacer par un décorateur CSRF approprié en production
+def add_course(request, dept_id, semester_id):
+    if request.method == 'POST':
+        try:
+            # Validation des données
+            code = request.POST.get('code')
+            if Course.objects.filter(code=code).exists():
+                return JsonResponse({
+                    'status': 'error',
+                    'error': f'Le code {code} existe déjà'
+                }, status=400)
+
+            # Création du cours
+            course = Course.objects.create(
+                code=code,
+                title=request.POST.get('title'),
+                credits=request.POST.get('credits'),
+                cm_hours=request.POST.get('cm_hours'),
+                td_hours=request.POST.get('td_hours'),
+                tp_hours=request.POST.get('tp_hours'),
+                cm_professor=request.POST.get('cm_professor', ''),
+                td_professor=request.POST.get('td_professor', ''),
+                tp_professor=request.POST.get('tp_professor', ''),
+                cm_room=request.POST.get('cm_room', ''),
+                tp_room=request.POST.get('tp_room', '')
+            )
+
+            # Redirection après succès
+            return redirect('database', dept_id=dept_id, semester_id=semester_id)
+
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'error': str(e)}, status=500)
+    
+    return JsonResponse({'status': 'error', 'error': 'Méthode non autorisée'}, status=405)
+
+
+
+def database_view(request, dept_id, semester_id):
+    """
+    View for displaying database with strict department and semester isolation
+    """
+    department = get_object_or_404(Department, id=dept_id)
+    semester = get_object_or_404(Semester, id=semester_id)
+    
+    # Stocker en session
+    request.session['department_id'] = dept_id
+    request.session['semester_id'] = semester_id
+    
+    # Filtrer les cours via les TimeSlots
+    courses = Course.objects.filter(
+        courseassignment__timeslot__department_id=dept_id,
+        courseassignment__timeslot__semester_id=semester_id
+    ).distinct()
+    
+    # Récupérer les assignations de cours
+    course_assignments = CourseAssignment.objects.filter(
+        department_id=dept_id, 
+        semester_id=semester_id
+    )
+    
+    context = {
+        'courses': courses,
+        'course_assignments': course_assignments,
+        'department': department,
+        'semester': semester,
+        'dept_id': dept_id,
+        'semester_id': semester_id
+    }
+    
+    return render(request, 'schedule/database.html', context)
+
+def get_courses(request, dept_id, semester_id):
+    courses = Course.objects.filter(
+        timeslot__department_id=dept_id,
+        timeslot__semester_id=semester_id
+    ).distinct()
+    
+    data = [{
+        'code': course.code,
+        'title': course.title,
+        'cm_professor': course.cm_professor,
+        'tp_room': course.tp_room
+    } for course in courses]
+    
+    return JsonResponse(data, safe=False)
+def get_all_plan(request):
+    """Get plan for all weeks"""
+    slots = TimeSlot.objects.all()
+    data = [{
+        'week': slot.week,
+        'day': slot.day,
+        'period': slot.period,
+        'course_code': slot.course_assignment.course.code,
+        'type': slot.course_assignment.type
+    } for slot in slots]
+    return JsonResponse(data, safe=False)
+@csrf_exempt
+def save_plan(request):
+    """Save schedule plan"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            plan = data['plan']
+            
+            print(f"Received plan data: {plan}")
+            
+            # Group slots by week for batch processing
+            slots_by_week = {}
+            for item in plan:
+                week = item['week']
+                if week not in slots_by_week:
+                    slots_by_week[week] = []
+                slots_by_week[week].append(item)
+            
+            # Process each week's slots
+            for week, items in slots_by_week.items():
+                print(f"Processing week {week}")
+                # Delete existing slots for this week
+                TimeSlot.objects.filter(week=week).delete()
+                
+                # Create new slots for this week
+                for item in items:
+                    try:
+                        print(f"Processing item: {item}")
+                        course_code = item.get('course_code')
+                        assignment_type = item.get('type')
+
+                        if not course_code:
+                            raise ValueError('Course code is missing')
+                        if not assignment_type:
+                            raise ValueError('Assignment type is missing')
+
+                        course = Course.objects.get(code=course_code)
+                        assignment = CourseAssignment.objects.get(
+                            course=course,
+                            type=assignment_type
+                        )
+                        
+                        # Create the time slot
+                        TimeSlot.objects.create(
+                            week=item['week'],
+                            day=item['day'],
+                            period=item['period'],
+                            course_assignment=assignment
+                        )
+                    except (Course.DoesNotExist, CourseAssignment.DoesNotExist) as e:
+                        print(f"Error finding course or assignment: {e}")
+                        return JsonResponse({
+                            'error': f'Could not find course or assignment: {str(e)}. Course code: {course_code}, Type: {assignment_type}'
+                        }, status=400)
+                    except Exception as e:
+                        print(f"Error saving time slot: {e}")
+                        return JsonResponse({
+                            'error': f'Error saving time slot: {str(e)}. Data: {item}'
+                        }, status=500)
+            
+            return JsonResponse({'status': 'success'})
+        except KeyError as e:
+            print(f"Missing required field: {e}")
+            return JsonResponse({
+                'error': f'Missing required field: {str(e)}'
+            }, status=400)
+        except json.JSONDecodeError as e:
+            print(f"Invalid JSON data: {e}")
+            return JsonResponse({
+                'error': 'Invalid JSON data'
+            }, status=400)
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            return JsonResponse({
+                'error': f'Unexpected error: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+def get_plan(request, week):
+    """Get plan for a specific week"""
+    slots = TimeSlot.objects.filter(week=week)
+    data = [{
+        'day': slot.day,
+        'period': slot.period,
+        'course_code': slot.course_assignment.course.code,
+        'type': slot.course_assignment.type
+    } for slot in slots]
+    return JsonResponse(data, safe=False)
+
+def base_view(request, dept_id, semester_id):
+    """
+    View for base template with department and semester context
+    """
+    department = get_object_or_404(Department, id=dept_id)
+    semester = get_object_or_404(Semester, id=semester_id)
+    
+    context = {
+        'department': department,
+        'semester': semester,
+        'dept_id': dept_id,
+        'semester_id': semester_id
+    }
+    
+    return render(request, 'schedule/base.html', context)

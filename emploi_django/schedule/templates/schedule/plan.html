@@ -90,37 +90,18 @@
     .plan-cell:hover {
         background-color: rgba(0,0,0,0.05);
     }
-
+    
+    .plan-cell.special {
+            background-color: #FFE4B5; /* Light orange for special events */
+        }
+  
     /* Course type styles */
-    .plan-cell.cm { 
-        background-color: #90EE90 !important; 
-        color: #000;
-        font-weight: 500;
-    }
-    .plan-cell.td { 
-        background-color: #FFB6C1 !important; 
-        color: #000;
-        font-weight: 500;
-    }
-    .plan-cell.tp { 
-        background-color: #87CEEB !important; 
-        color: #000;
-        font-weight: 500;
-    }
-    .plan-cell.selected { 
-        outline: 2px solid #007bff; 
-        z-index: 20;
-    }
-    .soutenance { 
-        background-color: #FFE4B5 !important; 
-        color: #000;
-        font-weight: 500;
-    }
-    .military { 
-        background-color: #E6E6FA !important; 
-        color: #000;
-        font-weight: 500;
-    }
+    .plan-cell.cm { background-color: #90EE90; }
+    .plan-cell.td { background-color: #FFB6C1; }
+    .plan-cell.tp { background-color: #87CEEB; }
+    .plan-cell.selected { outline: 2px solid #007bff; }
+    .soutenance { background-color: #FFE4B5; }
+    .military { background-color: #E6E6FA; }
 
     /* Day and period cells */
     .day-cell {
@@ -376,12 +357,11 @@
     function addSpecial(type) {
         if (!selectedCell) return;
         
-        if (type === 'SOUTENANCE') {
-            selectedCell.innerHTML = 'Soutenance Stage';
-            selectedCell.className = 'plan-cell soutenance';
-        } else if (type === 'MILITARY') {
-            selectedCell.innerHTML = 'Encadrement militaire';
-            selectedCell.className = 'plan-cell military';
+        if (type === 'SOUTENANCE' || type === 'MILITARY') {
+            selectedCell.innerHTML = type === 'SOUTENANCE' ? 'Soutenance Stage' : 'Encadrement militaire';
+            selectedCell.className = `plan-cell ${type.toLowerCase()}`;
+            selectedCell.dataset.courseCode = '';
+            selectedCell.dataset.type = 'SPECIAL';  // Use 'SPECIAL' for special events
         }
         
         courseModal.hide();
@@ -397,17 +377,16 @@
         courseModal.hide();
         savePlan();
     }
-    
     function savePlan() {
         const plan = [];
         document.querySelectorAll('.plan-cell').forEach(cell => {
-            if (cell.dataset.courseCode && cell.dataset.type) {
+            if (cell.dataset.courseCode || cell.dataset.type) {
                 plan.push({
                     week: parseInt(cell.dataset.week),
                     day: cell.dataset.day,
                     period: cell.dataset.period,
-                    course_code: cell.dataset.courseCode,
-                    type: cell.dataset.type
+                    course_code: cell.dataset.courseCode || '',
+                    type: cell.dataset.type || ''
                 });
             }
         });
@@ -427,7 +406,6 @@
             }
         });
     }
-    
     function loadPlan() {
         $.get('/api/plan/all/', function(data) {
             document.querySelectorAll('.plan-cell').forEach(cell => {
@@ -442,13 +420,13 @@
                     `#cell_${item.day}_${item.period}_${item.week}`
                 );
                 if (cell) {
-                    if (item.type === 'SOUTENANCE') {
-                        cell.innerHTML = 'Soutenance Stage';
-                        cell.className = 'plan-cell soutenance';
-                    } else if (item.type === 'MILITARY') {
-                        cell.innerHTML = 'Encadrement militaire';
-                        cell.className = 'plan-cell military';
+                    if (item.type === 'SPECIAL') {
+                        // Handle special events
+                        cell.innerHTML = 'Événement spécial';
+                        cell.className = 'plan-cell special';
+                        cell.dataset.type = 'SPECIAL';
                     } else {
+                        // Handle regular course assignments
                         cell.innerHTML = `${item.course_code} - ${item.type}`;
                         cell.dataset.courseCode = item.course_code;
                         cell.dataset.type = item.type;
@@ -458,7 +436,6 @@
             });
         });
     }
-
     // Initial load
     loadCourses();
     loadPlan();

@@ -1,48 +1,38 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}ESP Schedule{% endblock %}</title>
+    <title>{% block title %}Emploi du Temps{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     {% block extra_css %}{% endblock %}
     <style>
-        html, body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            width: 100vw;
-            height: 100vh;
-        }
-        .navbar {
-            padding: 0.25rem 0.5rem;
-            height: 48px;
-            margin: 0;
-            border: none;
-        }
-        .main-content {
-            height: calc(100vh - 48px);
-            width: 100vw;
-            overflow: hidden;
-            padding: 0 !important;
-            margin: 0 !important;
-        }
-        .container-fluid {
-            padding: 0 !important;
-            margin: 0 !important;
-            max-width: none !important;
-        }
         :root {
             --primary-color: #2c3e50;
             --secondary-color: #3498db;
             --accent-color: #e74c3c;
+            --background-color: #f4f6f9;
         }
-        
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            background-color: var(--background-color);
+        }
+
+        body {
+            display: block;
+            overflow-x: hidden;
+        }
+
         .navbar {
-            background-color: var(--primary-color);
+            background-color: var(--primary-color) !important;
+            padding: 0.5rem 1rem;
+            margin-bottom: 20px;
         }
         
         .navbar-brand, .nav-link {
@@ -52,66 +42,84 @@
         .nav-link:hover {
             color: var(--secondary-color) !important;
         }
-        
-        .schedule-cell {
-            min-height: 100px;
-            border: 1px solid #ddd;
-            padding: 10px;
-            margin: 2px;
-            background-color: white;
-            transition: all 0.3s ease;
+
+        .main-content {
+            padding: 20px;
+            min-height: calc(100vh - 80px);
         }
-        
-        .schedule-cell:hover {
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+
+        .container-fluid {
+            max-width: 100%;
+            padding: 0 15px;
         }
-        
-        .course-item {
+
+        .quick-change-btn {
             background-color: var(--secondary-color);
             color: white;
-            padding: 5px;
-            border-radius: 4px;
-            margin-bottom: 5px;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            margin-left: 15px;
+            transition: all 0.3s ease;
         }
-        
-        @media (max-width: 768px) {
-            .schedule-cell {
-                min-height: 60px;
-                font-size: 0.8em;
-            }
+
+        .quick-change-btn:hover {
+            background-color: var(--accent-color);
+            transform: scale(1.05);
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container-fluid">
-            <a class="navbar-brand" href="{% url 'schedule' %}">ESP Schedule</a>
+            <a class="navbar-brand" href="#">
+                {% if department and semester %}
+                    {{ department.name }} - Semestre {{ semester.number }}
+                    <a href="{% url 'department_selection' %}" class="quick-change-btn">
+                        <i class="fas fa-exchange-alt"></i> Changer
+                    </a>
+                {% else %}
+                    Emploi du Temps
+                {% endif %}
+            </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav">
+                    {% if department and semester %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'schedule' %}">Emploi</a>
+                        <a class="nav-link" href="{% url 'schedule_view' dept_id=department.id semester_id=semester.id %}">
+                            <i class="fas fa-calendar-alt"></i> Emploi du Temps
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'plan' %}">Plan</a>
+                        <a class="nav-link" href="{% url 'plan_view' dept_id=department.id semester_id=semester.id %}">
+                            <i class="fas fa-clipboard-list"></i> Plan
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'database' %}">Base de données</a>
+                        <a class="nav-link" href="{% url 'database_view' dept_id=department.id semester_id=semester.id %}">
+                            <i class="fas fa-database"></i> Base de Données
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'bilan' %}">Bilan</a>
+                        <a class="nav-link" href="{% url 'bilan_view' dept_id=department.id semester_id=semester.id %}">
+                            <i class="fas fa-chart-bar"></i> Bilan
+                        </a>
                     </li>
+                    {% endif %}
                 </ul>
             </div>
         </div>
     </nav>
-    <main class="main-content">
-        <div class="container">
-            {% block content %}{% endblock %}
-        </div>
-    </main>
+
+    <div class="main-content container-fluid">
+        {% block content %}{% endblock %}
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
